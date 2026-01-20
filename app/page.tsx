@@ -1,580 +1,115 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-type QA = { questionId: string; markers: string[]; note?: string };
+type Result = {
+  echo_factor: number;
+  scores: { E: number; C: number; H: number; O: number };
+  self_image_score: number;
+  digital_effect_score: number;
+  deviation: "small" | "medium" | "large";
+  band: "below average" | "average" | "above average";
+  commentary: string;
+};
 
-const INTENT_OPTIONS: Array<[string, string]> = [
-  ["Clarity", "Klarheit & Orientierung"],
-  ["Reliability", "Verlässlichkeit & Ruhe"],
-  ["Competence", "Kompetenz & Anspruch"],
-  ["Closeness", "Nähe & Dialog"],
-  ["Efficiency", "Effizienz & Tempo"],
-  ["DistinctStance", "Eigenständigkeit & Haltung"],
-  ["HumanWarmth", "Menschlichkeit & Fürsorge"],
-  ["Precision", "Präzision & Sorgfalt"],
-];
-
-const QUESTIONS: Array<{
-  id: string;
-  title: string;
-  prompt: string;
-  options: { id: string; label: string }[];
-  noteHint: string;
-}> = [
-  // Kunde
-  {
-    id: "K1",
-    title: "Kunde · Eindruck",
-    prompt: "Stell dir eine Person vor, die mit dir in einer Kundenbeziehung steht. Sie erlebt deinen Auftritt vor allem als …",
-    options: [
-      { id: "ClearOrdered", label: "klar & geordnet" },
-      { id: "CalmSovereign", label: "ruhig & souverän" },
-      { id: "Functional", label: "sachlich & funktional" },
-      { id: "PersonalClose", label: "persönlich & nah" },
-      { id: "NeedsExplanation", label: "erklärungsbedürftig" },
-      { id: "HardToGrasp", label: "schwer greifbar" },
-    ],
-    noteHint: "Woran machst du das fest? (z. B. Erstkontakt, Angebote, E-Mails …)",
-  },
-  {
-    id: "K2",
-    title: "Kunde · Haltung",
-    prompt: "Im Umgang mit Kunden wird vor allem folgende Haltung spürbar …",
-    options: [
-      { id: "CareResponsible", label: "sorgfältig & verantwortungsvoll" },
-      { id: "PragmaticSolution", label: "pragmatisch & lösungsorientiert" },
-      { id: "Partnership", label: "partnerschaftlich" },
-      { id: "DemandingHighBar", label: "anspruchsvoll & fordernd" },
-      { id: "Distant", label: "distanziert" },
-      { id: "Inconsistent", label: "uneinheitlich" },
-    ],
-    noteHint: "Woran zeigt sich das im Alltag?",
-  },
-  {
-    id: "K3",
-    title: "Kunde · Konsistenz",
-    prompt: "Über verschiedene Kontaktmomente hinweg wirkt diese Wahrnehmung …",
-    options: [
-      { id: "VeryConsistent", label: "sehr konsistent" },
-      { id: "MostlyConsistent", label: "meist konsistent" },
-      { id: "ContextDependent", label: "situationsabhängig" },
-      { id: "Contradictory", label: "eher widersprüchlich" },
-    ],
-    noteHint: "Wo ist es besonders deutlich – und wo bricht es?",
-  },
-
-  // Bewerber
-  {
-    id: "B1",
-    title: "Bewerber · Eindruck",
-    prompt: "Stell dir eine Person vor, die eine Stelle bei dir prüft – ohne dich persönlich zu kennen. Sie erlebt dich auf der Jobs/Arbeitgeberseite vor allem als …",
-    options: [
-      { id: "Inviting", label: "klar & einladend" },
-      { id: "FocusedHighBar", label: "anspruchsvoll & fokussiert" },
-      { id: "Human", label: "nahbar & menschlich" },
-      { id: "FormalDistant", label: "formal & distanziert" },
-      { id: "Generic", label: "austauschbar" },
-      { id: "HardToPlace", label: "schwer einzuordnen" },
-    ],
-    noteHint: "Woran würde sie das merken?",
-  },
-  {
-    id: "B2",
-    title: "Bewerber · Kulturwirkung",
-    prompt: "Welche Kulturwirkung wird spürbar – ohne dass sie explizit erklärt wird?",
-    options: [
-      { id: "TrustResponsibility", label: "Verantwortung & Vertrauen" },
-      { id: "PerformanceDemand", label: "Leistung & Anspruch" },
-      { id: "CollaborationClose", label: "Zusammenarbeit & Nähe" },
-      { id: "OrderControl", label: "Ordnung & Kontrolle" },
-      { id: "FreedomCreate", label: "Freiheit & Gestaltung" },
-      { id: "UnclearContradictory", label: "unklar / widersprüchlich" },
-    ],
-    noteHint: "Woran machst du das fest?",
-  },
-  {
-    id: "B3",
-    title: "Bewerber · Passung",
-    prompt: "Im Verhältnis zu deiner Absicht wirkt dieser Arbeitgeberauftritt …",
-    options: [
-      { id: "VeryAligned", label: "sehr stimmig" },
-      { id: "MostlyAligned", label: "überwiegend stimmig" },
-      { id: "Tension", label: "spannungsvoll" },
-      { id: "Unclear", label: "unklar" },
-    ],
-    noteHint: "Worin liegt die Spannung (falls vorhanden)?",
-  },
-
-  // Branchenkenner
-  {
-    id: "R1",
-    title: "Branchenkenner · Einordnung",
-    prompt: "Stell dir jemanden vor, der deine Branche gut kennt. Er würde deinen Auftritt vermutlich so einordnen …",
-    options: [
-      { id: "ClearlyPositioned", label: "klar positioniert" },
-      { id: "SolidExpected", label: "solide, aber erwartbar" },
-      { id: "AmbitiousNotSharp", label: "ambitioniert, aber noch nicht scharf" },
-      { id: "Distinct", label: "eigenständig" },
-      { id: "HardToPlace2", label: "schwer einzuordnen" },
-      { id: "Contradictory2", label: "widersprüchlich" },
-    ],
-    noteHint: "Woran würde er das festmachen?",
-  },
-  {
-    id: "R2",
-    title: "Branchenkenner · Vergleich",
-    prompt: "Im Vergleich zu relevanten Mitbewerbern wirkt dein Auftritt …",
-    options: [
-      { id: "HighlyDistinct", label: "deutlich eigenständig" },
-      { id: "PartlyDistinct", label: "in Teilen eigenständig" },
-      { id: "IndustryTypical", label: "eher branchenüblich" },
-      { id: "BarelyDistinct", label: "kaum unterscheidbar" },
-    ],
-    noteHint: "Wodurch unterscheidet es sich (oder nicht)?",
-  },
-  {
-    id: "R3",
-    title: "Branchenkenner · Entstehung",
-    prompt: "Diese Wirkung entsteht bei dir eher durch …",
-    options: [
-      { id: "ConsciousDecisions", label: "bewusste Entscheidungen" },
-      { id: "GrownPractice", label: "gewachsene Praxis" },
-      { id: "SingleInitiatives", label: "Einzelinitiativen" },
-      { id: "ChanceHistory", label: "Zufall / Historie" },
-    ],
-    noteHint: "Wenn du willst: Welche Entscheidung prägt das am stärksten?",
-  },
-];
-
-function clampText(s: string, n: number) {
-  return (s ?? "").slice(0, n);
-}
-
-function Card(props: { children: React.ReactNode }) {
+function Gauge({ label, value }: { label: string; value: number }) {
+  const pct = Math.max(0, Math.min(100, value));
   return (
-    <div
-      style={{
-        border: "1px solid rgba(0,0,0,0.10)",
-        borderRadius: 18,
-        padding: 16,
-        background: "white",
-      }}
-    >
-      {props.children}
+    <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 18, padding: 14 }}>
+      <div style={{ fontSize: 13, opacity: 0.7 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
+        <div style={{ width: 120, height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 999 }}>
+          <div style={{ width: `${pct}%`, height: 10, background: "#111", borderRadius: 999 }} />
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 750 }}>{pct}</div>
+      </div>
     </div>
   );
 }
 
-function Button(props: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; kind?: "primary" | "ghost" }) {
-  const primary = props.kind !== "ghost";
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      style={{
-        padding: "12px 16px",
-        borderRadius: 14,
-        border: primary ? "1px solid #111" : "1px solid rgba(0,0,0,0.12)",
-        background: primary ? "#111" : "white",
-        color: primary ? "white" : "#111",
-        cursor: props.disabled ? "not-allowed" : "pointer",
-        opacity: props.disabled ? 0.45 : 1,
-        fontWeight: 650,
-      }}
-    >
-      {props.children}
-    </button>
-  );
-}
+export default function ResultPage() {
+  const [r, setR] = useState<Result | null>(null);
 
-function OptionButton(props: { label: string; selected: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        padding: "12px 14px",
-        borderRadius: 14,
-        border: props.selected ? "1px solid #111" : "1px solid rgba(0,0,0,0.12)",
-        background: props.selected ? "#111" : "white",
-        color: props.selected ? "white" : "#111",
-        cursor: "pointer",
-        transition: "all 120ms ease",
-      }}
-    >
-      {props.label}
-    </button>
-  );
-}
+  useEffect(() => {
+    const raw = sessionStorage.getItem("echo_result");
+    if (raw) setR(JSON.parse(raw));
+  }, []);
 
-export default function Page() {
-  const router = useRouter();
-  const totalSteps = 6;
-  const [step, setStep] = useState(1);
-
-  const [companyName, setCompanyName] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [size, setSize] = useState("11-50");
-  const [role, setRole] = useState("CEO");
-
-  const [intentPicks, setIntentPicks] = useState<string[]>([]);
-  const [intentNote, setIntentNote] = useState("");
-
-  const [answers, setAnswers] = useState<Record<string, QA>>(() =>
-    Object.fromEntries(QUESTIONS.map((q) => [q.id, { questionId: q.id, markers: [], note: "" }]))
-  );
-
-  const [companyUrl, setCompanyUrl] = useState("");
-  const [compUrls, setCompUrls] = useState(["", "", ""]);
-
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const canNext = useMemo(() => {
-    if (step === 1) return companyName.trim().length > 0 && industry.trim().length > 0;
-    if (step === 2) return intentPicks.length >= 1 && intentPicks.length <= 2;
-    if (step >= 3 && step <= 5) {
-      const idx = (step - 3) * 3;
-      const subset = QUESTIONS.slice(idx, idx + 3);
-      return subset.every((q) => (answers[q.id]?.markers?.length ?? 0) >= 1);
-    }
-    if (step === 6) return companyUrl.trim().length > 0 && compUrls.every((u) => u.trim().length > 0);
-    return true;
-  }, [step, companyName, industry, intentPicks, answers, companyUrl, compUrls]);
-
-  function toggleIntent(id: string) {
-    setIntentPicks((prev) => {
-      const has = prev.includes(id);
-      const next = has ? prev.filter((x) => x !== id) : [...prev, id];
-      return next.slice(0, 2);
-    });
+  if (!r) {
+    return (
+      <main style={{ maxWidth: 860, margin: "0 auto", padding: 24, fontFamily: "system-ui", color: "#111" }}>
+        <h1>Kein Ergebnis gefunden</h1>
+        <p>Geh zurück zur Startseite und starte den Test erneut.</p>
+      </main>
+    );
   }
 
-  function toggleMarker(qid: string, mid: string) {
-    setAnswers((prev) => {
-      const cur = prev[qid];
-      const arr = cur.markers ?? [];
-      const has = arr.includes(mid);
-      let next = has ? arr.filter((x) => x !== mid) : [...arr, mid];
-      if (next.length > 2) next = next.slice(next.length - 2);
-      return { ...prev, [qid]: { ...cur, markers: next } };
-    });
-  }
+  const bandDE =
+    r.band === "below average" ? "unterdurchschnittlich" : r.band === "above average" ? "überdurchschnittlich" : "durchschnittlich";
 
-  async function submit() {
-    setLoading(true);
-    setErr(null);
-
-    try {
-      const payload = {
-        companyName,
-        industry,
-        size,
-        role,
-        intent: { picks: intentPicks, note: intentNote },
-        selfAssessment: QUESTIONS.map((q) => ({
-          questionId: q.id,
-          markers: answers[q.id].markers,
-          note: answers[q.id].note ?? "",
-        })),
-        urls: { company: companyUrl, competitors: compUrls },
-      };
-
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Analyse fehlgeschlagen");
-
-      sessionStorage.setItem("echo_result", JSON.stringify(data));
-      router.push("/result");
-    } catch (e: any) {
-      setErr(e?.message ?? "Fehler");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const pct = Math.round((step / totalSteps) * 100);
+  const devDE = r.deviation === "small" ? "klein" : r.deviation === "large" ? "gross" : "mittel";
 
   return (
-    <main
-      style={{
-        maxWidth: 940,
-        margin: "0 auto",
-        padding: "44px 18px",
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"',
-        color: "#111",
-      }}
-    >
+    <main style={{ maxWidth: 940, margin: "0 auto", padding: "44px 18px", fontFamily: "system-ui", color: "#111" }}>
       <div style={{ maxWidth: 760 }}>
-        {/* Progress */}
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, opacity: 0.7 }}>
-          <span>{`Schritt ${step} von ${totalSteps}`}</span>
-          <span>{pct}%</span>
-        </div>
-        <div style={{ marginTop: 8, height: 8, background: "rgba(0,0,0,0.08)", borderRadius: 999 }}>
-          <div style={{ width: `${pct}%`, height: 8, background: "#111", borderRadius: 999 }} />
-        </div>
+        <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>Dein Ergebnis</h1>
+        <p style={{ marginTop: 10, opacity: 0.8, lineHeight: 1.6 }}>
+          ECHO-Faktor: <b>{r.echo_factor}/100</b> · Einordnung: <b>{bandDE}</b>
+        </p>
 
-        <div style={{ height: 22 }} />
-
-        {step === 1 && (
-          <>
-            <div style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 12, opacity: 0.6 }}>
-              ECHO Self-Assessment
-            </div>
-            <h1 style={{ fontSize: 46, lineHeight: 1.05, margin: "12px 0 12px 0", fontWeight: 760 }}>
-              Wie wirkt deine Marke – gemessen an Wahrnehmung, nicht an Absicht?
-            </h1>
-            <p style={{ fontSize: 16.5, lineHeight: 1.6, opacity: 0.82, margin: 0 }}>
-              6–8 Minuten. Keine Vorbereitung. Kein Urteil – du erhältst Orientierung.
-            </p>
-
-            <div style={{ height: 18 }} />
-
-            <Card>
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, opacity: 0.75 }}>Unternehmensname</span>
-                  <input
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    style={inputStyle}
-                    placeholder="z. B. isolutions AG"
-                  />
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, opacity: 0.75 }}>Branche / Segment</span>
-                  <input
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                    style={inputStyle}
-                    placeholder="z. B. IT-Dienstleistungen"
-                  />
-                </label>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <label style={{ display: "grid", gap: 6 }}>
-                    <span style={{ fontSize: 13, opacity: 0.75 }}>Grösse</span>
-                    <select value={size} onChange={(e) => setSize(e.target.value)} style={inputStyle}>
-                      {["1-10", "11-50", "51-200", "201-1000", "1000+"].map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label style={{ display: "grid", gap: 6 }}>
-                    <span style={{ fontSize: 13, opacity: 0.75 }}>Rolle (GL)</span>
-                    <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
-                      {["CEO", "COO", "CFO", "HR", "Sales", "Marketing", "Other"].map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </Card>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <h2 style={{ fontSize: 30, margin: "0 0 10px 0", fontWeight: 740 }}>Kurz zur Referenz</h2>
-            <p style={{ margin: 0, opacity: 0.8, lineHeight: 1.6 }}>
-              Was soll jemand idealerweise erleben, wenn er erstmals mit deiner Organisation in Kontakt kommt?
-              <br />
-              <span style={{ opacity: 0.8 }}>Wähle max. 2.</span>
-            </p>
-
-            <div style={{ height: 14 }} />
-
-            <Card>
-              <div style={{ display: "grid", gap: 10 }}>
-                {INTENT_OPTIONS.map(([id, label]) => (
-                  <OptionButton key={id} label={label} selected={intentPicks.includes(id)} onClick={() => toggleIntent(id)} />
-                ))}
-
-                <div style={{ height: 8 }} />
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, opacity: 0.75 }}>Optional (1 Satz)</span>
-                  <input
-                    value={intentNote}
-                    onChange={(e) => setIntentNote(clampText(e.target.value, 140))}
-                    style={inputStyle}
-                    placeholder="Woran würde man das erkennen?"
-                  />
-                </label>
-              </div>
-            </Card>
-
-            <div style={{ height: 14 }} />
-            <div style={hintStyle}>
-              Es gibt keine richtigen oder falschen Antworten. Entscheidend ist, worauf du deine Wahrnehmung stützt.
-            </div>
-          </>
-        )}
-
-        {step >= 3 && step <= 5 && (
-          <>
-            <h2 style={{ fontSize: 30, margin: "0 0 10px 0", fontWeight: 740 }}>
-              {step === 3 ? "Perspektive: Kunde" : step === 4 ? "Perspektive: Bewerber" : "Perspektive: Branchenkenner"}
-            </h2>
-            <p style={{ margin: 0, opacity: 0.82, lineHeight: 1.6 }}>
-              Wähle pro Frage 1–2 Marker. Wenn du willst, begründe kurz (optional).
-            </p>
-
-            <div style={{ height: 14 }} />
-
-            <div style={{ display: "grid", gap: 14 }}>
-              {QUESTIONS.slice((step - 3) * 3, (step - 3) * 3 + 3).map((q) => {
-                const a = answers[q.id];
-                return (
-                  <Card key={q.id}>
-                    <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.6 }}>
-                      {q.title}
-                    </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, marginTop: 8 }}>{q.prompt}</div>
-
-                    <div style={{ height: 12 }} />
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {q.options.map((o) => (
-                        <OptionButton
-                          key={o.id}
-                          label={o.label}
-                          selected={a.markers.includes(o.id)}
-                          onClick={() => toggleMarker(q.id, o.id)}
-                        />
-                      ))}
-                    </div>
-
-                    <div style={{ height: 12 }} />
-
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 13, opacity: 0.75 }}>Optional (max. 1–2 Sätze)</span>
-                      <textarea
-                        value={a.note ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: { ...prev[q.id], note: clampText(e.target.value, 180) },
-                          }))
-                        }
-                        style={{ ...inputStyle, minHeight: 64 }}
-                        placeholder={q.noteHint}
-                      />
-                    </label>
-                  </Card>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {step === 6 && (
-          <>
-            <h2 style={{ fontSize: 30, margin: "0 0 10px 0", fontWeight: 740 }}>Digitale Realität</h2>
-            <p style={{ margin: 0, opacity: 0.82, lineHeight: 1.6 }}>
-              Wir analysieren deine Website als digitale Visitenkarte – so, wie sie wirkt, wenn niemand etwas erklärt.
-              Wähle Mitbewerber, die in Grösse/Bekanntheit möglichst vergleichbar sind.
-            </p>
-
-            <div style={{ height: 14 }} />
-
-            <Card>
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, opacity: 0.75 }}>Deine Website</span>
-                  <input
-                    value={companyUrl}
-                    onChange={(e) => setCompanyUrl(e.target.value)}
-                    style={inputStyle}
-                    placeholder="https://…"
-                  />
-                </label>
-
-                {compUrls.map((u, i) => (
-                  <label key={i} style={{ display: "grid", gap: 6 }}>
-                    <span style={{ fontSize: 13, opacity: 0.75 }}>{`Mitbewerber ${i + 1}`}</span>
-                    <input
-                      value={u}
-                      onChange={(e) => setCompUrls((prev) => prev.map((x, idx) => (idx === i ? e.target.value : x)))}
-                      style={inputStyle}
-                      placeholder="https://…"
-                    />
-                  </label>
-                ))}
-              </div>
-            </Card>
-
-            <div style={{ height: 14 }} />
-            <div style={hintStyle}>
-              Tipp: Wenn du “relevante Mitbewerber” wählst, meint das: ähnliche Grösse, ähnlicher Markt, ähnliche Bekanntheit.
-            </div>
-          </>
-        )}
-
-        <div style={{ height: 18 }} />
-
-        {/* Navigation */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <Button kind="ghost" disabled={step === 1 || loading} onClick={() => setStep((s) => Math.max(1, s - 1))}>
-            Zurück
-          </Button>
-
-          {step < totalSteps ? (
-            <Button disabled={!canNext || loading} onClick={() => setStep((s) => Math.min(totalSteps, s + 1))}>
-              Weiter
-            </Button>
-          ) : (
-            <Button disabled={!canNext || loading} onClick={submit}>
-              {loading ? "Auswerten…" : "Auswerten"}
-            </Button>
-          )}
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", marginTop: 18 }}>
+          <Gauge label="Erlebnis (E)" value={r.scores.E} />
+          <Gauge label="Charakter (C)" value={r.scores.C} />
+          <Gauge label="Homogenität (H)" value={r.scores.H} />
+          <Gauge label="Originalität (O)" value={r.scores.O} />
         </div>
 
-        {err && (
-          <div style={{ marginTop: 14, borderRadius: 16, padding: 14, border: "1px solid rgba(220,0,0,0.25)", background: "rgba(220,0,0,0.05)" }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Da ist etwas schiefgelaufen</div>
-            <div style={{ opacity: 0.85 }}>{err}</div>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr 1fr", marginTop: 16 }}>
+          <div style={miniCard}>
+            <div style={miniTitle}>Selbstbild</div>
+            <div style={miniValue}>{r.self_image_score}</div>
           </div>
-        )}
+          <div style={miniCard}>
+            <div style={miniTitle}>Digitale Wirkung</div>
+            <div style={miniValue}>{r.digital_effect_score}</div>
+          </div>
+          <div style={miniCard}>
+            <div style={miniTitle}>Abweichung</div>
+            <div style={miniValue}>{devDE}</div>
+            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.75, lineHeight: 1.45 }}>
+              {r.deviation === "small"
+                ? "Dein Selbstbild und der digitale Eindruck liegen nahe beieinander."
+                : r.deviation === "medium"
+                ? "Es gibt erkennbare Spannungen zwischen Selbstbild und digitaler Wirkung."
+                : "Selbstbild und digitaler Eindruck unterscheiden sich deutlich – das ist ein Hinweis auf Übersetzungsfragen."}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, borderRadius: 18, border: "1px solid rgba(0,0,0,0.10)", padding: 16 }}>
+          <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.6 }}>Kommentar</div>
+          <div style={{ marginTop: 10, whiteSpace: "pre-line", fontSize: 16, lineHeight: 1.7, opacity: 0.92 }}>
+            {r.commentary}
+          </div>
+        </div>
       </div>
     </main>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid rgba(0,0,0,0.12)",
-  borderRadius: 14,
-  padding: "12px 12px",
-  fontSize: 15,
-  outline: "none",
+const miniCard: React.CSSProperties = {
+  border: "1px solid rgba(0,0,0,0.10)",
+  borderRadius: 18,
+  padding: 14,
 };
 
-const hintStyle: React.CSSProperties = {
-  borderRadius: 16,
-  border: "1px solid rgba(0,0,0,0.10)",
-  background: "rgba(0,0,0,0.03)",
-  padding: 14,
-  fontSize: 14,
-  lineHeight: 1.6,
-  opacity: 0.9,
+const miniTitle: React.CSSProperties = {
+  fontSize: 13,
+  opacity: 0.7,
+};
+
+const miniValue: React.CSSProperties = {
+  fontSize: 24,
+  fontWeight: 780,
+  marginTop: 6,
 };
