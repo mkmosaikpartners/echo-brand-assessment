@@ -5,8 +5,14 @@ function clamp(v: number) {
   return Math.max(0, Math.min(100, v));
 }
 
+function maturityFrom(score: number) {
+  if (score < 50) return "implizit";
+  if (score < 70) return "bewusst";
+  return "intentional & geführt";
+}
+
 export async function POST() {
-  // 1) Basis-Scores (dein bestehendes Modell)
+  // Basiswerte aus Schritt 2
   let E = 60;
   let C = 65;
   let H = 58;
@@ -14,47 +20,7 @@ export async function POST() {
 
   const self_image_score = 66;
 
-  // 2) KI-gestützte Feinjustierung
-  try {
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Du bist ein Brand-Analyst. Du justierst bestehende Scores vorsichtig. " +
-            "Du veränderst Werte nur leicht (max. ±8). Du antwortest ausschließlich als JSON.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            scores: { E, C, H, O },
-            context:
-              "Digitale Markenwirkung eines KMU. Bitte prüfe, ob einzelne Dimensionen " +
-              "leicht stärker oder schwächer wirken könnten. Keine starken Ausschläge.",
-          }),
-        },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content;
-    if (raw) {
-      const adj = JSON.parse(raw);
-      if (adj.E !== undefined) E = clamp(E + adj.E);
-      if (adj.C !== undefined) C = clamp(C + adj.C);
-      if (adj.H !== undefined) H = clamp(H + adj.H);
-      if (adj.O !== undefined) O = clamp(O + adj.O);
-    }
-  } catch (e) {
-    // falls KI ausfällt: Basiswerte bleiben bestehen
-  }
-
-  // 3) Abgeleitete Werte
+  // Digitale Wirkung
   const digital_effect_score = Math.round((E + C + H + O) / 4);
   const echo_factor = digital_effect_score;
 
@@ -69,13 +35,20 @@ export async function POST() {
       ? "above average"
       : "average";
 
-  // 4) Kommentar (KI, aber sicher)
-  let commentary =
-    "Dein Auftritt wirkt insgesamt konsistent und professionell. " +
-    "In der digitalen Wirkung zeigen sich jedoch feine Unterschiede zwischen Anspruch und Ausdruck. " +
-    "Das betrifft weniger einzelne Inhalte als das Zusammenspiel von Tonalität, Struktur und Wiedererkennbarkeit. " +
-    "Hier liegt Potenzial, die vorhandene Substanz klarer zu bündeln und bewusster zu führen.";
+  const maturity = maturityFrom(echo_factor);
 
+  // Fallback-Kommentar (sehr wichtig)
+  let commentary =
+    `Deine Marke wirkt aktuell ${maturity} geführt. Das heisst, vieles funktioniert bereits aus einer klaren Haltung heraus, ` +
+    `ohne dass Wirkung überall explizit gesteuert wird.\n\n` +
+    `Aus Kundensicht entsteht ein insgesamt verlässlicher und professioneller Eindruck, ` +
+    `der Vertrauen schafft, aber nicht in jedem Moment klar führt.\n` +
+    `Bewerber nehmen ein solides, jedoch eher zurückhaltendes Profil wahr, bei dem Haltung spürbar, ` +
+    `aber nicht durchgängig formuliert ist.\n` +
+    `Branchenkenner erkennen Substanz und Erfahrung, gleichzeitig bleibt die Unterscheidung zu vergleichbaren Anbietern punktuell unscharf.\n\n` +
+    `Genau hier liegt Potenzial: nicht im Neu-Erfinden, sondern im bewussteren Führen dessen, was bereits da ist.`;
+
+  // KI formuliert Reifegrad + Aussenwahrnehmung + Vergleich
   try {
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -88,16 +61,26 @@ export async function POST() {
         {
           role: "system",
           content:
-            "Du schreibst einen ruhigen, reflektierten Markenkommentar in Du-Form. " +
-            "Keine Floskeln, keine Tipps, keine To-dos.",
+            "Du bist ein erfahrener Markenstratege. Du schreibst in Du-Form, ruhig, präzise, ohne Floskeln. " +
+            "Du erklärst Reifegrad, Aussenwahrnehmung (Kunde, Bewerber, Branche) und relative Einordnung zu Mitbewerbern. " +
+            "Keine Tipps, keine To-dos.",
         },
         {
           role: "user",
           content:
             `ECHO-Ergebnis:\n` +
             `E=${E}, C=${C}, H=${H}, O=${O}\n` +
-            `Selbstbild=${self_image_score}, Digitale Wirkung=${digital_effect_score}\n\n` +
-            `Formuliere einen Kommentar (120–150 Wörter), der Wirkung, Spannungen und Potenzial beschreibt.`,
+            `ECHO-Faktor=${echo_factor} (${band})\n` +
+            `Selbstbild=${self_image_score}, Digitale Wirkung=${digital_effect_score}, Abweichung=${deviation}\n\n` +
+            `Reifegrad-Logik:\n` +
+            `- implizit = Wirkung entsteht zufällig oder historisch\n` +
+            `- bewusst = Wirkung wird verstanden, aber nicht durchgehend geführt\n` +
+            `- intentional & geführt = Wirkung ist klar definiert und konsistent umgesetzt\n\n` +
+            `Formuliere einen Kommentar (150–200 Wörter), der:\n` +
+            `1) den Reifegrad einordnet,\n` +
+            `2) beschreibt, wie die Marke auf Kunden, Bewerber und Branchenkenner wirkt,\n` +
+            `3) die Position im Vergleich zu typischen Mitbewerbern beschreibt,\n` +
+            `4) Potenzial aufzeigt, ohne konkret zu werden.`,
         },
       ],
     });
@@ -113,6 +96,7 @@ export async function POST() {
     digital_effect_score,
     deviation,
     band,
+    maturity,
     commentary,
   });
 }
