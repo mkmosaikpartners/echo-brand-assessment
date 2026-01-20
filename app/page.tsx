@@ -1,131 +1,122 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
-type Result = {
-  echo_factor: number;
-  scores: { E: number; C: number; H: number; O: number };
-  self_image_score: number;
-  digital_effect_score: number;
-  deviation: "small" | "medium" | "large";
-  band: "below average" | "average" | "above average";
-  commentary: string;
-};
+type QA = { questionId: string; markers: string[]; note?: string };
 
-function Gauge({ label, value }: { label: string; value: number }) {
-  const pct = Math.max(0, Math.min(100, value));
+const INTENT_OPTIONS: Array<[string, string]> = [
+  ["clarity", "Klarheit & Orientierung"],
+  ["reliability", "Verlässlichkeit & Ruhe"],
+  ["competence", "Kompetenz & Anspruch"],
+  ["dialogue", "Nähe & Dialog"],
+  ["efficiency", "Effizienz & Tempo"],
+  ["stance", "Eigenständigkeit & Haltung"],
+  ["human", "Menschlichkeit & Fürsorge"],
+  ["precision", "Präzision & Sorgfalt"],
+];
 
-  return (
-    <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 18, padding: 14 }}>
-      <div style={{ fontSize: 13, opacity: 0.7 }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
-        <div style={{ width: 140, height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 999 }}>
-          <div style={{ width: `${pct}%`, height: 10, background: "#111", borderRadius: 999 }} />
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 780 }}>{pct}</div>
-      </div>
-    </div>
+const QUESTIONS = [
+  {
+    id: "K1",
+    title: "Kunde · Eindruck",
+    prompt: "Stell dir eine Person vor, die mit dir in einer Kundenbeziehung steht. Sie erlebt deinen Auftritt vor allem als …",
+    options: ["klar & geordnet", "ruhig & souverän", "sachlich & funktional", "persönlich & nah", "erklärungsbedürftig", "schwer greifbar"],
+  },
+  {
+    id: "K2",
+    title: "Kunde · Haltung",
+    prompt: "Im Umgang mit Kunden wird vor allem folgende Haltung spürbar …",
+    options: ["sorgfältig & verantwortungsvoll", "pragmatisch & lösungsorientiert", "partnerschaftlich", "anspruchsvoll & fordernd", "distanziert", "uneinheitlich"],
+  },
+  {
+    id: "K3",
+    title: "Kunde · Konsistenz",
+    prompt: "Über verschiedene Kontaktmomente hinweg wirkt diese Wahrnehmung …",
+    options: ["sehr konsistent", "meist konsistent", "situationsabhängig", "eher widersprüchlich"],
+  },
+];
+
+export default function Page() {
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+
+  const [companyName, setCompanyName] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [intent, setIntent] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<string, QA>>(
+    Object.fromEntries(QUESTIONS.map(q => [q.id, { questionId: q.id, markers: [] }]))
   );
-}
 
-export default function ResultPage() {
-  const [r, setR] = useState<Result | null>(null);
+  const canNext = useMemo(() => {
+    if (step === 1) return companyName && industry;
+    if (step === 2) return intent.length > 0 && intent.length <= 2;
+    if (step === 3) return QUESTIONS.every(q => answers[q.id].markers.length > 0);
+    return true;
+  }, [step, companyName, industry, intent, answers]);
 
-  useEffect(() => {
-    const raw =
-      sessionStorage.getItem("echo_result") ||
-      localStorage.getItem("echo_result");
-
-    if (raw) setR(JSON.parse(raw));
-  }, []);
-
-  if (!r) {
-    return (
-      <main style={{ maxWidth: 860, margin: "0 auto", padding: 24, fontFamily: "system-ui", color: "#111" }}>
-        <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>Kein Ergebnis gefunden</h1>
-        <p style={{ marginTop: 12, opacity: 0.8, lineHeight: 1.6 }}>
-          Geh zurück zur Startseite und starte den Test erneut.
-        </p>
-      </main>
-    );
+  function toggleIntent(id: string) {
+    setIntent(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      return next.slice(0, 2);
+    });
   }
 
-  const bandDE =
-    r.band === "below average" ? "unterdurchschnittlich" :
-    r.band === "above average" ? "überdurchschnittlich" :
-    "durchschnittlich";
+  function toggleMarker(qid: string, label: string) {
+    setAnswers(prev => {
+      const m = prev[qid].markers;
+      const next = m.includes(label) ? m.filter(x => x !== label) : [...m, label];
+      return { ...prev, [qid]: { ...prev[qid], markers: next.slice(0, 2) } };
+    });
+  }
 
-  const devDE =
-    r.deviation === "small" ? "klein" :
-    r.deviation === "large" ? "gross" :
-    "mittel";
+  async function submit() {
+    const res = await fetch("/api/analyze", { method: "POST" });
+    const data = await res.json();
+
+    sessionStorage.setItem("echo_result", JSON.stringify(data));
+    localStorage.setItem("echo_result", JSON.stringify(data));
+
+    router.push("/result");
+  }
 
   return (
-    <main style={{ maxWidth: 940, margin: "0 auto", padding: "44px 18px", fontFamily: "system-ui", color: "#111" }}>
-      <div style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>Dein Ergebnis</h1>
+    <main style={{ maxWidth: 760, margin: "0 auto", padding: 32, fontFamily: "system-ui" }}>
+      {step === 1 && (
+        <>
+          <h1>Wie wirkt deine Marke?</h1>
+          <input placeholder="Unternehmensname" value={companyName} onChange={e => setCompanyName(e.target.value)} />
+          <input placeholder="Branche" value={industry} onChange={e => setIndustry(e.target.value)} />
+        </>
+      )}
 
-        <p style={{ marginTop: 10, opacity: 0.82, lineHeight: 1.6 }}>
-          ECHO-Faktor: <b>{r.echo_factor}/100</b> · Einordnung: <b>{bandDE}</b>
-        </p>
+      {step === 2 && (
+        <>
+          <h2>Was soll man idealerweise erleben?</h2>
+          {INTENT_OPTIONS.map(([id, label]) => (
+            <button key={id} onClick={() => toggleIntent(id)}>{label}</button>
+          ))}
+        </>
+      )}
 
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", marginTop: 18 }}>
-          <Gauge label="Erlebnis (E)" value={r.scores.E} />
-          <Gauge label="Charakter (C)" value={r.scores.C} />
-          <Gauge label="Homogenität (H)" value={r.scores.H} />
-          <Gauge label="Originalität (O)" value={r.scores.O} />
-        </div>
-
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr 1fr", marginTop: 16 }}>
-          <div style={miniCard}>
-            <div style={miniTitle}>Selbstbild</div>
-            <div style={miniValue}>{r.self_image_score}</div>
-          </div>
-
-          <div style={miniCard}>
-            <div style={miniTitle}>Digitale Wirkung</div>
-            <div style={miniValue}>{r.digital_effect_score}</div>
-          </div>
-
-          <div style={miniCard}>
-            <div style={miniTitle}>Abweichung</div>
-            <div style={miniValue}>{devDE}</div>
-            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.75, lineHeight: 1.45 }}>
-              {r.deviation === "small"
-                ? "Dein Selbstbild und der digitale Eindruck liegen nahe beieinander."
-                : r.deviation === "medium"
-                ? "Es gibt erkennbare Spannungen zwischen Selbstbild und digitaler Wirkung."
-                : "Selbstbild und digitaler Eindruck unterscheiden sich deutlich – das ist ein Hinweis auf Übersetzungsfragen."}
+      {step === 3 && (
+        <>
+          {QUESTIONS.map(q => (
+            <div key={q.id}>
+              <h3>{q.prompt}</h3>
+              {q.options.map(o => (
+                <button key={o} onClick={() => toggleMarker(q.id, o)}>{o}</button>
+              ))}
             </div>
-          </div>
-        </div>
+          ))}
+        </>
+      )}
 
-        <div style={{ marginTop: 16, borderRadius: 18, border: "1px solid rgba(0,0,0,0.10)", padding: 16 }}>
-          <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.6 }}>
-            Kommentar
-          </div>
-          <div style={{ marginTop: 10, whiteSpace: "pre-line", fontSize: 16, lineHeight: 1.7, opacity: 0.92 }}>
-            {r.commentary}
-          </div>
-        </div>
+      <div style={{ marginTop: 24 }}>
+        {step > 1 && <button onClick={() => setStep(s => s - 1)}>Zurück</button>}
+        {step < 3 && <button disabled={!canNext} onClick={() => setStep(s => s + 1)}>Weiter</button>}
+        {step === 3 && <button onClick={submit}>Auswerten</button>}
       </div>
     </main>
   );
 }
-
-const miniCard: React.CSSProperties = {
-  border: "1px solid rgba(0,0,0,0.10)",
-  borderRadius: 18,
-  padding: 14,
-};
-
-const miniTitle: React.CSSProperties = {
-  fontSize: 13,
-  opacity: 0.7,
-};
-
-const miniValue: React.CSSProperties = {
-  fontSize: 24,
-  fontWeight: 780,
-  marginTop: 6,
-};
