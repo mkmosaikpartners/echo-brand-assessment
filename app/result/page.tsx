@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 
 type Result = {
+  company_name?: string;
   echo_factor: number;
   scores: { E: number; C: number; H: number; O: number };
   self_image_score: number;
   digital_effect_score: number;
   deviation: "small" | "medium" | "large";
   band: "below average" | "average" | "above average";
+  maturity?: string;
   commentary: string;
 };
 
@@ -31,10 +33,7 @@ export default function ResultPage() {
   const [r, setR] = useState<Result | null>(null);
 
   useEffect(() => {
-    const raw =
-      sessionStorage.getItem("echo_result") ||
-      localStorage.getItem("echo_result");
-
+    const raw = sessionStorage.getItem("echo_result") || localStorage.getItem("echo_result");
     if (raw) setR(JSON.parse(raw));
   }, []);
 
@@ -59,13 +58,18 @@ export default function ResultPage() {
     r.deviation === "large" ? "gross" :
     "mittel";
 
+  const titleName = (r.company_name || "").trim();
+
   return (
     <main style={{ maxWidth: 940, margin: "0 auto", padding: "44px 18px", fontFamily: "system-ui", color: "#111" }}>
       <div style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>Dein Ergebnis</h1>
+        <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>
+          {titleName ? `ECHO-Ergebnis für ${titleName}` : "ECHO-Ergebnis"}
+        </h1>
 
         <p style={{ marginTop: 10, opacity: 0.82, lineHeight: 1.6 }}>
           ECHO-Faktor: <b>{r.echo_factor}/100</b> · Einordnung: <b>{bandDE}</b>
+          {r.maturity ? <> · Reifegrad: <b>{r.maturity}</b></> : null}
         </p>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", marginTop: 18 }}>
@@ -91,10 +95,10 @@ export default function ResultPage() {
             <div style={miniValue}>{devDE}</div>
             <div style={{ marginTop: 6, fontSize: 13, opacity: 0.75, lineHeight: 1.45 }}>
               {r.deviation === "small"
-                ? "Dein Selbstbild und der digitale Eindruck liegen nahe beieinander."
+                ? "Selbstbild und Wirkung liegen nahe beieinander."
                 : r.deviation === "medium"
-                ? "Es gibt erkennbare Spannungen zwischen Selbstbild und digitaler Wirkung."
-                : "Selbstbild und digitaler Eindruck unterscheiden sich deutlich – das ist ein Hinweis auf Übersetzungsfragen."}
+                ? "Es gibt erkennbare Spannungen zwischen Selbstbild und Wirkung."
+                : "Selbstbild und Wirkung unterscheiden sich deutlich – das ist ein Hinweis auf Übersetzungsfragen."}
             </div>
           </div>
         </div>
