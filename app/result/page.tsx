@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type Result = {
   company_name?: string;
+  companyName?: string;
   echo_factor: number;
   scores: { E: number; C: number; H: number; O: number };
   self_image_score: number;
@@ -58,13 +59,13 @@ export default function ResultPage() {
     r.deviation === "large" ? "gross" :
     "mittel";
 
-  const titleName = (r.company_name || "").trim();
+  const company = (r.company_name || r.companyName || "").trim();
 
   return (
     <main style={{ maxWidth: 940, margin: "0 auto", padding: "44px 18px", fontFamily: "system-ui", color: "#111" }}>
       <div style={{ maxWidth: 760 }}>
         <h1 style={{ fontSize: 40, margin: 0, fontWeight: 780 }}>
-          {titleName ? `ECHO-Ergebnis für ${titleName}` : "ECHO-Ergebnis"}
+          {company ? `ECHO-Ergebnis für ${company}` : "ECHO-Ergebnis"}
         </h1>
 
         <p style={{ marginTop: 10, opacity: 0.82, lineHeight: 1.6 }}>
@@ -93,13 +94,6 @@ export default function ResultPage() {
           <div style={miniCard}>
             <div style={miniTitle}>Abweichung</div>
             <div style={miniValue}>{devDE}</div>
-            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.75, lineHeight: 1.45 }}>
-              {r.deviation === "small"
-                ? "Selbstbild und Wirkung liegen nahe beieinander."
-                : r.deviation === "medium"
-                ? "Es gibt erkennbare Spannungen zwischen Selbstbild und Wirkung."
-                : "Selbstbild und Wirkung unterscheiden sich deutlich – das ist ein Hinweis auf Übersetzungsfragen."}
-            </div>
           </div>
         </div>
 
@@ -121,14 +115,5 @@ const miniCard: React.CSSProperties = {
   borderRadius: 18,
   padding: 14,
 };
-
-const miniTitle: React.CSSProperties = {
-  fontSize: 13,
-  opacity: 0.7,
-};
-
-const miniValue: React.CSSProperties = {
-  fontSize: 24,
-  fontWeight: 780,
-  marginTop: 6,
-};
+const miniTitle: React.CSSProperties = { fontSize: 13, opacity: 0.7 };
+const miniValue: React.CSSProperties = { fontSize: 24, fontWeight: 780, marginTop: 6 };
