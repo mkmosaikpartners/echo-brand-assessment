@@ -1,153 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import OpenAI from "openai";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
-
-export const runtime = "nodejs";
+import { scrapeWebsite } from "@/lib/scrape";
 
 const InputSchema = z.object({
   companyName: z.string().min(1),
   industry: z.string().min(1),
   url: z.string().url(),
-  // Optional: knappe Selbstbeschreibung (hilft Executive-Relevanz, ohne Self-Assessment-Overkill)
   selfNote: z.string().optional().default(""),
 });
 
-function sameOriginLinks(baseUrl: string, html: string) {
-  const out: string[] = [];
-  try {
-    const base = new URL(baseUrl);
-    const dom = new JSDOM(html);
-    const as = Array.from(dom.window.document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
-
-    for (const a of as) {
-      const href = (a.getAttribute("href") || "").trim();
-      if (!href) continue;
-      if (href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("#")) continue;
-
-      let u: URL | null = null;
-      try {
-        u = new URL(href, base);
-      } catch {
-        continue;
-      }
-      if (u.origin !== base.origin) continue;
-
-      // nur "normale" Seiten
-      if (/\.(pdf|jpg|jpeg|png|webp|svg|zip)$/i.test(u.pathname)) continue;
-
-      // duplikate vermeiden
-      const clean = u.toString().split("#")[0];
-      out.push(clean);
-    }
-  } catch {
-    // ignore
-  }
-
-  // uniq
-  return Array.from(new Set(out));
-}
-
-function pickRelevantLinks(urls: string[]) {
-  const keywords = [
-    "about",
-    "ueber",
-    "über",
-    "unternehmen",
-    "team",
-    "people",
-    "kultur",
-    "culture",
-    "karriere",
-    "career",
-    "jobs",
-    "leistungen",
-    "services",
-    "angebot",
-    "portfolio",
-    "cases",
-    "referenzen",
-    "kontakt",
-    "contact",
-  ];
-
-  const scored = urls
-    .map((u) => {
-      const lu = u.toLowerCase();
-      let s = 0;
-      for (const k of keywords) if (lu.includes(k)) s += 1;
-      // homepage nicht doppelt
-      if (lu.endsWith("/") || lu.match(/\/(de|en|fr|it)\/?$/)) s += 0.5;
-      return { u, s };
-    })
-    .sort((a, b) => b.s - a.s);
-
-  // nimm die besten 4
-  return scored.filter((x) => x.s > 0).slice(0, 4).map((x) => x.u);
-}
-
-function extractReadableText(url: string, html: string) {
-  const dom = new JSDOM(html, { url });
-  const doc = dom.window.document;
-
-  // remove obvious noise
-  doc.querySelectorAll("script, style, noscript").forEach((n) => n.remove());
-
-  const title = (doc.querySelector("title")?.textContent || "").trim();
-  const h1 = (doc.querySelector("h1")?.textContent || "").trim();
-
-  const reader = new Readability(doc);
-  const article = reader.parse();
-
-  const mainText = (article?.textContent || doc.body?.textContent || "").replace(/\s+/g, " ").trim();
-
-  // simple nav hint (IA)
-  const navItems = Array.from(doc.querySelectorAll("nav a"))
-    .map((a) => (a.textContent || "").replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .slice(0, 20);
-
-  return { title, h1, navItems, mainText };
-}
-
-async function fetchHtml(url: string) {
-  const res = await fetch(url, {
-    redirect: "follow",
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; ECHO-Assessment/1.0; +https://mosaik.partners)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    // @ts-ignore
-    cache: "no-store",
-  });
-
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
-  if (!ct.includes("text/html") && !ct.includes("application/xhtml+xml")) {
-    throw new Error(`Not HTML (${ct}) for ${url}`);
-  }
-  return await res.text();
-}
-
-function clamp0_100(n: number) {
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-// Executive-Normierung: investierende Firmen sollen "nicht demotiviert" werden,
-// Extreme bleiben sichtbar.
-function executiveCalibrate(raw: number) {
-  // 60 -> 70, 70 -> 78, 80 -> 85, 50 -> 63, 40 -> 55, 30 -> 48
-  return clamp0_100(raw * 0.75 + 25);
-}
-
-function avg4(E: number, C: number, H: number, O: number) {
-  return Math.round((E + C + H + O) / 4);
-}
-
-const ModelJsonSchema = z.object({
-  position_statement: z.string().min(10),
+const OutputSchema = z.object({
+  position_statement: z.string(),
   scores: z.object({
     E: z.number(),
     C: z.number(),
@@ -155,10 +19,32 @@ const ModelJsonSchema = z.object({
     O: z.number(),
   }),
   maturity: z.enum(["implizit", "bewusst", "intentional & geführt"]),
-  industry_positioning: z.enum(["unterdurchschnittlich", "durchschnittlich", "überdurchschnittlich", "führend"]),
-  tensions: z.array(z.string()).min(3).max(3),
-  executive_implication: z.string().min(20),
+  industry_positioning: z.enum([
+    "unterdurchschnittlich",
+    "durchschnittlich",
+    "überdurchschnittlich",
+    "führend",
+  ]),
+  tensions: z.array(z.string()).length(3),
+  executive_implication: z.string(),
 });
+
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function calibrate(value: number) {
+  // milde Executive-Kalibrierung:
+  // solide Firmen landen eher im 70er-Bereich, Ausreisser bleiben möglich
+  if (value < 50) return clamp(value + 8);
+  if (value < 65) return clamp(value + 10);
+  if (value < 80) return clamp(value + 7);
+  return clamp(value + 3);
+}
+
+function avg(values: number[]) {
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+}
 
 export async function POST(req: Request) {
   try {
@@ -169,169 +55,133 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = InputSchema.parse(await req.json());
+    const input = InputSchema.parse(await req.json());
 
-    // 1) Website sammeln (Homepage + 0–4 relevante Seiten)
-    const homeHtml = await fetchHtml(body.url);
-    const links = sameOriginLinks(body.url, homeHtml);
-    const picked = pickRelevantLinks(links);
+    const pages = await scrapeWebsite(input.url);
 
-    const pages: Array<{
-      url: string;
-      title: string;
-      h1: string;
-      navItems: string[];
-      text: string;
-    }> = [];
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
-    // homepage
-    {
-      const ex = extractReadableText(body.url, homeHtml);
-      pages.push({
-        url: body.url,
-        title: ex.title,
-        h1: ex.h1,
-        navItems: ex.navItems,
-        text: ex.mainText,
-      });
-    }
-
-    // extras
-    for (const u of picked) {
-      try {
-        const html = await fetchHtml(u);
-        const ex = extractReadableText(u, html);
-        pages.push({
-          url: u,
-          title: ex.title,
-          h1: ex.h1,
-          navItems: ex.navItems,
-          text: ex.mainText,
-        });
-      } catch {
-        // bewusst ignorieren (robust)
-      }
-    }
-
-    // 2) Kompakt machen (Token-Hygiene)
-    const compact = pages.map((p) => ({
-      url: p.url,
-      title: p.title,
-      h1: p.h1,
-      nav: p.navItems.slice(0, 12),
-      text: p.text.slice(0, 3500),
-    }));
-
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    // 3) Prompt: Executive, branchenbezogen, nicht langweilig, Ruth integriert
     const prompt = `
-Du bist ein strategischer Markenanalyst und gibst eine Dritteinschätzung anhand des ECHO-Modells.
-ECHO ist eine Methode, Identität greifbar zu machen – nicht „digitale Identität“.
+Du bist ein strategischer Markenanalyst.
 
-Bewerte RELATIV zur Branche "${body.industry}" (ohne explizite Mitbewerber).
-Du nutzt implizite Branchenstandards (üblich vs. überdurchschnittlich vs. führend).
+Du erstellst eine Dritteinschätzung anhand der ECHO-Methode.
+ECHO ist eine Methode, Identität greifbar zu machen.
 
-E – Erlebnis: Wird Identität in Kontaktmomenten greifbar (Orientierung, Klarheit, Führung, Verständlichkeit)?
-C – Charakter: Ist Haltung erkennbar und positioniert (Ton, Selbstverständnis, Mut zur Kontur)?
-H – Homogenität: Ist die Identität systemisch konsistent über Seiten/Touchpoints, oder wirkt sie personen-/situationsabhängig?
-O – Originalität: Ist Differenzierung strukturell sichtbar (Wertversprechen, Perspektive, Narrative), oder austauschbar?
+E = Erlebnis
+Wird Identität in Kontaktmomenten spürbar, verständlich und orientierend?
 
-Integriere diese Muster explizit, wenn passend (Ruth):
-- „ambitioniert, aber nicht durchgängig umgesetzt“
-- Personen-/Standortabhängigkeit als Grund für inkonsistente Wirkung
-- Anspruch/Exzellenz erkennbar, aber Differenzierung nicht verdichtet
+C = Charakter
+Ist Haltung, Perspektive und Selbstverständnis klar erkennbar?
 
-Tonalität:
-- professionell interessant (präzise, ruhig, erwachsen)
-- kein Marketing-Sprech, keine Floskeln
-- keine To-dos / keine Beratung / keine Checklisten
-- Diagnose als Momentaufnahme (damit der Test später erneut besser ausfallen kann)
+H = Homogenität
+Ist diese Identität systemisch konsistent oder wirkt sie situativ / personenabhängig?
 
-Score-Logik (Rohwerte 0–100, aber realistisch):
-- Branchen-Standard liegt typischerweise eher im Bereich 65–78
-- Unter 55 nur bei massiver Inkonsistenz / Unklarheit
-- Über 85 nur bei klarer Führung + Verdichtung + Differenzierung
+O = Originalität
+Ist Differenzierung strukturell sichtbar oder eher austauschbar?
 
-Gib ausschließlich JSON zurück in genau diesem Format:
+WICHTIG:
+- Beurteile relativ zur Branche: ${input.industry}
+- Keine Floskeln
+- Keine To-dos
+- Keine Beratungssprache
+- Executive-Tonalität
+- Es ist eine Momentaufnahme
+- Branchenübliche Firmen sollen oft im 70er-Bereich landen
+- Deutlich schwache Fälle dürfen unter 50 fallen
+- Sehr starke Fälle dürfen über 85 liegen
+
+Falls passend, integriere Spannungen wie:
+- ambitioniert, aber nicht durchgängig umgesetzt
+- personen-/standortabhängige Inkonsistenz
+- Anspruch erkennbar, aber Differenzierung nicht verdichtet
+
+Firma: ${input.companyName}
+Branche: ${input.industry}
+Optionale Kurznotiz:
+${input.selfNote || "(keine)"}
+
+Analysierte Seiten:
+${JSON.stringify(pages, null, 2)}
+
+Gib NUR JSON zurück in exakt diesem Format:
 {
-  "position_statement": "ein Satz, der sitzt (nicht freundlich weich, nicht aggressiv)",
-  "scores": {"E": number, "C": number, "H": number, "O": number},
+  "position_statement": "string",
+  "scores": {
+    "E": number,
+    "C": number,
+    "H": number,
+    "O": number
+  },
   "maturity": "implizit" | "bewusst" | "intentional & geführt",
   "industry_positioning": "unterdurchschnittlich" | "durchschnittlich" | "überdurchschnittlich" | "führend",
-  "tensions": ["drei präzise Spannungsfelder", "…", "…"],
-  "executive_implication": "eine knappe, strategische Implikation (kein Ratschlag)"
+  "tensions": ["string", "string", "string"],
+  "executive_implication": "string"
 }
-
-Kontext:
-Firma: ${body.companyName}
-Branche: ${body.industry}
-Optionale Selbstnotiz: ${body.selfNote || "(keine)"}
-
-Website-Auszug (mehrere Seiten, komprimiert):
-${JSON.stringify(compact, null, 2)}
 `;
 
-    const completion = await client.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.35,
       messages: [
-        { role: "system", content: "Du gibst ausschließlich gültiges JSON zurück. Kein Markdown." },
-        { role: "user", content: prompt },
+        {
+          role: "system",
+          content: "Du antwortest ausschliesslich mit gültigem JSON.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
       ],
     });
 
-    const content = completion.choices[0]?.message?.content?.trim() || "";
-    let parsed: any;
+    const raw = completion.choices[0]?.message?.content || "";
+
+    let parsed;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(raw);
     } catch {
       return NextResponse.json(
-        { error: "KI hat kein gültiges JSON geliefert.", raw: content.slice(0, 1000) },
+        { error: "Die KI hat kein gültiges JSON geliefert." },
         { status: 500 }
       );
     }
 
-    const model = ModelJsonSchema.parse(parsed);
+    const result = OutputSchema.parse(parsed);
 
-    // 4) Executive-Normierung (für Wirkung / Wiederholbarkeit / nicht demotivierend)
-    const raw = {
-      E: clamp0_100(model.scores.E),
-      C: clamp0_100(model.scores.C),
-      H: clamp0_100(model.scores.H),
-      O: clamp0_100(model.scores.O),
+    const calibratedScores = {
+      E: calibrate(result.scores.E),
+      C: calibrate(result.scores.C),
+      H: calibrate(result.scores.H),
+      O: calibrate(result.scores.O),
     };
 
-    const calibrated = {
-      E: executiveCalibrate(raw.E),
-      C: executiveCalibrate(raw.C),
-      H: executiveCalibrate(raw.H),
-      O: executiveCalibrate(raw.O),
-    };
-
-    const echo_factor = avg4(calibrated.E, calibrated.C, calibrated.H, calibrated.O);
+    const echoFactor = avg([
+      calibratedScores.E,
+      calibratedScores.C,
+      calibratedScores.H,
+      calibratedScores.O,
+    ]);
 
     return NextResponse.json({
-      company_name: body.companyName,
-      industry: body.industry,
-      url: body.url,
+      company_name: input.companyName,
+      industry: input.industry,
+      url: input.url,
+      pages_analyzed: pages.map((p) => p.url),
 
-      position_statement: model.position_statement,
-      maturity: model.maturity,
-      industry_positioning: model.industry_positioning,
-      tensions: model.tensions,
-      executive_implication: model.executive_implication,
-
-      raw_scores: raw,
-      scores: calibrated,
-      echo_factor,
-
-      // für Transparenz (ohne UI-Overload)
-      meta: {
-        pages_analyzed: compact.map((p) => p.url),
-      },
+      position_statement: result.position_statement,
+      scores: calibratedScores,
+      echo_factor: echoFactor,
+      maturity: result.maturity,
+      industry_positioning: result.industry_positioning,
+      tensions: result.tensions,
+      executive_implication: result.executive_implication,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "API Error" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Analyse fehlgeschlagen." },
+      { status: 500 }
+    );
   }
 }
