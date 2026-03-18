@@ -1,116 +1,194 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 
-async function fetchHtml(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; ECHO-Snapshot/1.0)",
-    },
-    // @ts-ignore
-    cache: "no-store",
-  });
+type ScrapedPage = {
+  url: string;
+  title: string;
+  h1: string;
+  navItems: string[];
+  text: string;
+};
 
-  if (!response.ok) {
-    throw new Error(`Website konnte nicht geladen werden (${response.status}).`);
-  }
+const BLOCKED_PATTERNS = [
+  "/cart",
+  "/checkout",
+  "/login",
+  "/signin",
+  "/account",
+  "/privacy",
+  "/datenschutz",
+  "/impressum",
+  "/agb",
+  "/terms",
+  "/cookie",
+  "/cookies",
+  "/legal",
+  "/feed",
+  "/wp-json",
+];
 
-  const html = await response.text();
-  return html;
+function cleanText(input: string) {
+  return input.replace(/\s+/g, " ").trim();
 }
 
-function extractLinks(baseUrl: string, html: string) {
-  const dom = new JSDOM(html, { url: baseUrl });
-  const document = dom.window.document;
-
-  const base = new URL(baseUrl);
-
-  const links = Array.from(document.querySelectorAll("a[href]"))
-    .map((a) => (a as HTMLAnchorElement).href)
-    .filter((href) => {
-      try {
-        const url = new URL(href);
-        return url.origin === base.origin;
-      } catch {
-        return false;
-      }
-    });
-
-  return Array.from(new Set(links));
+function isBlockedUrl(url: string) {
+  const lower = url.toLowerCase();
+  return BLOCKED_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
 function scoreLink(url: string) {
-  const value = url.toLowerCase();
+  const lower = url.toLowerCase();
   let score = 0;
 
-  const keywords = [
+  const positives = [
     "about",
     "ueber",
     "über",
     "unternehmen",
     "team",
     "approach",
+    "method",
+    "methode",
     "services",
     "leistungen",
     "angebot",
-    "culture",
-    "karriere",
+    "portfolio",
+    "work",
+    "cases",
+    "referenzen",
+    "kunden",
     "contact",
     "kontakt",
+    "karriere",
+    "culture",
+    "values",
+    "werte",
   ];
 
-  for (const keyword of keywords) {
-    if (value.includes(keyword)) score += 1;
+  const negatives = [
+    "cart",
+    "checkout",
+    "login",
+    "privacy",
+    "impressum",
+    "agb",
+    "cookie",
+    "legal",
+    "feed",
+  ];
+
+  for (const p of positives) {
+    if (lower.includes(p)) score += 2;
   }
+
+  for (const n of negatives) {
+    if (lower.includes(n)) score -= 5;
+  }
+
+  if (lower.split("/").length <= 5) score += 1;
 
   return score;
 }
 
-function extractText(url: string, html: string) {
+async function fetchHtml(url: string) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; ECHO-Snapshot/1.0)",
+      Accept: "text/html,application/xhtml+xml",
+    },
+    // @ts-ignore
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Website konnte nicht geladen werden (${res.status})`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("text/html")) {
+    throw new Error(`Kein HTML-Inhalt unter ${url}`);
+  }
+
+  return await res.text();
+}
+
+function extractInternalLinks(baseUrl: string, html: string) {
+  const dom = new JSDOM(html, { url: baseUrl });
+  const document = dom.window.document;
+  const base = new URL(baseUrl);
+
+  const urls = Array.from(document.querySelectorAll("a[href]"))
+    .map((a) => (a as HTMLAnchorElement).href)
+    .map((href) => href.split("#")[0].trim())
+    .filter(Boolean)
+    .filter((href) => {
+      try {
+        const u = new URL(href);
+        return u.origin === base.origin;
+      } catch {
+        return false;
+      }
+    })
+    .filter((href) => !isBlockedUrl(href));
+
+  return Array.from(new Set(urls));
+}
+
+function extractPage(url: string, html: string): ScrapedPage {
   const dom = new JSDOM(html, { url });
   const document = dom.window.document;
+
+  document.querySelectorAll("script, style, noscript").forEach((node) => node.remove());
 
   const reader = new Readability(document);
   const article = reader.parse();
 
-  const title = document.querySelector("title")?.textContent?.trim() || "";
-  const h1 = document.querySelector("h1")?.textContent?.trim() || "";
-  const text =
-    article?.textContent?.replace(/\s+/g, " ").trim() ||
-    document.body?.textContent?.replace(/\s+/g, " ").trim() ||
+  const title = cleanText(document.querySelector("title")?.textContent || "");
+  const h1 = cleanText(document.querySelector("h1")?.textContent || "");
+
+  const navItems = Array.from(document.querySelectorAll("nav a"))
+    .map((a) => cleanText(a.textContent || ""))
+    .filter(Boolean)
+    .slice(0, 15);
+
+  const rawText =
+    article?.textContent ||
+    document.body?.textContent ||
     "";
 
+  const text = cleanText(rawText).slice(0, 5000);
+
   return {
+    url,
     title,
     h1,
-    text: text.slice(0, 4000),
+    navItems,
+    text,
   };
 }
 
 export async function scrapeWebsite(startUrl: string) {
   const homepageHtml = await fetchHtml(startUrl);
-  const homepage = extractText(startUrl, homepageHtml);
+  const homepage = extractPage(startUrl, homepageHtml);
 
-  const links = extractLinks(startUrl, homepageHtml)
+  const internalLinks = extractInternalLinks(startUrl, homepageHtml)
     .sort((a, b) => scoreLink(b) - scoreLink(a))
-    .slice(0, 3);
+    .slice(0, 4);
 
-  const pages = [
-    {
-      url: startUrl,
-      ...homepage,
-    },
-  ];
+  const pages: ScrapedPage[] = [homepage];
 
-  for (const link of links) {
+  for (const link of internalLinks) {
+    if (pages.find((p) => p.url === link)) continue;
+
     try {
       const html = await fetchHtml(link);
-      const page = extractText(link, html);
-      pages.push({
-        url: link,
-        ...page,
-      });
+      const page = extractPage(link, html);
+
+      if (page.text.length < 120) continue;
+
+      pages.push(page);
     } catch {
-      // einzelne Seiten dürfen ausfallen, ohne den ganzen Flow zu zerstören
+      // einzelne Seiten dürfen ausfallen
     }
   }
 
