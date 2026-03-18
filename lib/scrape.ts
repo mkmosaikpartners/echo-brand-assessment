@@ -1,81 +1,118 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 
-const MAX_CHARS = 9000; // pro Seite, damit es stabil bleibt
-const TIMEOUT_MS = 12000;
+async function fetchHtml(url: string) {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; ECHO-Snapshot/1.0)",
+    },
+    // @ts-ignore
+    cache: "no-store",
+  });
 
-function truncate(s: string, n: number) {
-  if (!s) return "";
-  return s.length <= n ? s : s.slice(0, n) + "\n…";
+  if (!response.ok) {
+    throw new Error(`Website konnte nicht geladen werden (${response.status}).`);
+  }
+
+  const html = await response.text();
+  return html;
 }
 
-async function fetchWithTimeout(url: string) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+function extractLinks(baseUrl: string, html: string) {
+  const dom = new JSDOM(html, { url: baseUrl });
+  const document = dom.window.document;
 
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; ECHO-Assessment/1.0; +https://mosaik.partners)",
-        Accept: "text/html,application/xhtml+xml",
-      },
+  const base = new URL(baseUrl);
+
+  const links = Array.from(document.querySelectorAll("a[href]"))
+    .map((a) => (a as HTMLAnchorElement).href)
+    .filter((href) => {
+      try {
+        const url = new URL(href);
+        return url.origin === base.origin;
+      } catch {
+        return false;
+      }
     });
 
-    const ct = res.headers.get("content-type") || "";
-    if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
-    if (!ct.includes("text/html")) throw new Error(`Not HTML (${ct}) for ${url}`);
+  return Array.from(new Set(links));
+}
 
-    const html = await res.text();
-    return html;
-  } finally {
-    clearTimeout(t);
+function scoreLink(url: string) {
+  const value = url.toLowerCase();
+  let score = 0;
+
+  const keywords = [
+    "about",
+    "ueber",
+    "über",
+    "unternehmen",
+    "team",
+    "approach",
+    "services",
+    "leistungen",
+    "angebot",
+    "culture",
+    "karriere",
+    "contact",
+    "kontakt",
+  ];
+
+  for (const keyword of keywords) {
+    if (value.includes(keyword)) score += 1;
   }
+
+  return score;
 }
 
-function extractMeta(doc: Document) {
-  const get = (sel: string) =>
-    (doc.querySelector(sel) as HTMLMetaElement | null)?.content?.trim() || "";
-
-  const description = get('meta[name="description"]') || undefined;
-  const ogTitle = get('meta[property="og:title"]') || undefined;
-  const ogDescription = get('meta[property="og:description"]') || undefined;
-
-  return { description, ogTitle, ogDescription };
-}
-
-export async function scrapeUrl(url: string): Promise<{
-  url: string;
-  title: string;
-  text: string;
-  meta: { description?: string; ogTitle?: string; ogDescription?: string };
-}> {
-  const html = await fetchWithTimeout(url);
-
+function extractText(url: string, html: string) {
   const dom = new JSDOM(html, { url });
-  const doc = dom.window.document;
+  const document = dom.window.document;
 
-  const title = (doc.querySelector("title")?.textContent || "").trim();
-  const meta = extractMeta(doc);
-
-  // Readability extrahiert den „Hauptinhalt“
-  const reader = new Readability(doc);
+  const reader = new Readability(document);
   const article = reader.parse();
 
-  let text =
-    (article?.textContent || "")
-      .replace(/\s+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim() || "";
+  const title = document.querySelector("title")?.textContent?.trim() || "";
+  const h1 = document.querySelector("h1")?.textContent?.trim() || "";
+  const text =
+    article?.textContent?.replace(/\s+/g, " ").trim() ||
+    document.body?.textContent?.replace(/\s+/g, " ").trim() ||
+    "";
 
-  // Fallback: wenn Readability nichts findet
-  if (!text || text.length < 200) {
-    const bodyText = (doc.body?.textContent || "").replace(/\s+/g, " ").trim();
-    text = bodyText;
+  return {
+    title,
+    h1,
+    text: text.slice(0, 4000),
+  };
+}
+
+export async function scrapeWebsite(startUrl: string) {
+  const homepageHtml = await fetchHtml(startUrl);
+  const homepage = extractText(startUrl, homepageHtml);
+
+  const links = extractLinks(startUrl, homepageHtml)
+    .sort((a, b) => scoreLink(b) - scoreLink(a))
+    .slice(0, 3);
+
+  const pages = [
+    {
+      url: startUrl,
+      ...homepage,
+    },
+  ];
+
+  for (const link of links) {
+    try {
+      const html = await fetchHtml(link);
+      const page = extractText(link, html);
+      pages.push({
+        url: link,
+        ...page,
+      });
+    } catch {
+      // einzelne Seiten dürfen ausfallen, ohne den ganzen Flow zu zerstören
+    }
   }
 
-  text = truncate(text, MAX_CHARS);
-
-  return { url, title, text, meta };
+  return pages;
 }
