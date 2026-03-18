@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import PDFDocument from "pdfkit";
 
 export const runtime = "nodejs";
+
+// pdfkit sicher laden
+const PDFDocument = require("pdfkit");
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +26,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "PDF konnte nicht erstellt werden." },
+      {
+        error: error?.message || "PDF konnte nicht erstellt werden.",
+      },
       { status: 500 }
     );
   }
@@ -40,14 +44,19 @@ function buildPdf(data: any): Promise<Buffer> {
 
       const chunks: Buffer[] = [];
 
-      doc.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
+      doc.on("error", (err: Error) => reject(err));
 
-      doc.font("Helvetica-Bold").fontSize(28).text(`ECHO Snapshot für ${data.company_name || ""}`);
+      // Titel
+      doc.font("Helvetica-Bold").fontSize(28).fillColor("#111");
+      doc.text(`ECHO Snapshot für ${data.company_name || ""}`);
+
       doc.moveDown(0.4);
 
-      doc.font("Helvetica").fontSize(12).fillColor("#111").text(
+      // Meta
+      doc.font("Helvetica").fontSize(12).fillColor("#111");
+      doc.text(
         `Branche: ${data.industry || ""} · Branchenposition: ${data.industry_positioning || ""} · Reifegrad: ${data.maturity || ""}`
       );
 
@@ -85,10 +94,11 @@ function buildPdf(data: any): Promise<Buffer> {
       sectionTitle(doc, "Executive-Implikation");
       bodyText(doc, data.executive_implication || "");
 
-      doc.moveDown(1.2);
-      doc.font("Helvetica").fontSize(10).fillColor("#666").text(
-        `Analysierte Seiten: ${(data.pages_analyzed || []).join(" · ")}`
-      );
+      if ((data.pages_analyzed || []).length) {
+        doc.moveDown(1.2);
+        doc.font("Helvetica").fontSize(10).fillColor("#666");
+        doc.text(`Analysierte Seiten: ${(data.pages_analyzed || []).join(" · ")}`);
+      }
 
       doc.end();
     } catch (err) {
@@ -97,22 +107,21 @@ function buildPdf(data: any): Promise<Buffer> {
   });
 }
 
-function sectionTitle(doc: PDFKit.PDFDocument, text: string) {
+function sectionTitle(doc: any, text: string) {
   doc.moveDown(0.8);
-  doc.font("Helvetica-Bold").fontSize(13).fillColor("#666").text(text.toUpperCase());
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#666");
+  doc.text(text.toUpperCase());
   doc.moveDown(0.3);
 }
 
-function bodyText(doc: PDFKit.PDFDocument, text: string) {
-  doc.font("Helvetica").fontSize(12.5).fillColor("#111").text(text, {
-    lineGap: 4,
-  });
+function bodyText(doc: any, text: string) {
+  doc.font("Helvetica").fontSize(12.5).fillColor("#111");
+  doc.text(text || "", { lineGap: 4 });
   doc.moveDown(0.3);
 }
 
-function bodyBullet(doc: PDFKit.PDFDocument, text: string) {
-  doc.font("Helvetica").fontSize(12.5).fillColor("#111").text(`• ${text}`, {
-    lineGap: 4,
-  });
+function bodyBullet(doc: any, text: string) {
+  doc.font("Helvetica").fontSize(12.5).fillColor("#111");
+  doc.text(`• ${text}`, { lineGap: 4 });
   doc.moveDown(0.2);
 }
