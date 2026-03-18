@@ -33,6 +33,7 @@ type Result = {
 export default function ResultPage() {
   const router = useRouter();
   const [result, setResult] = useState<Result | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("echo_result");
@@ -40,6 +41,56 @@ export default function ResultPage() {
       setResult(JSON.parse(raw));
     }
   }, []);
+
+  async function downloadPdf() {
+    if (!result) return;
+
+    try {
+      setDownloading(true);
+
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(result),
+      });
+
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!res.ok) {
+        if (contentType.includes("application/json")) {
+          const errorJson = await res.json();
+          throw new Error(errorJson?.error || "PDF konnte nicht erstellt werden.");
+        }
+        throw new Error("PDF konnte nicht erstellt werden.");
+      }
+
+      if (!contentType.includes("application/pdf")) {
+        const maybeJson = await res.text();
+        throw new Error(`Kein PDF zurückgegeben. Antwort war: ${maybeJson}`);
+      }
+
+      const blob = await res.blob();
+
+      if (blob.size === 0) {
+        throw new Error("Leeres PDF erhalten.");
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `ECHO-Snapshot-${result.company_name}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      alert(err?.message || "PDF-Download fehlgeschlagen.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   if (!result) {
     return (
@@ -134,23 +185,8 @@ export default function ResultPage() {
       </Section>
 
       <div style={{ display: "flex", gap: 16, marginTop: 20, marginBottom: 20 }}>
-        <button
-          style={primaryButton}
-          onClick={async () => {
-            const res = await fetch("/api/pdf", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(result),
-            });
-
-            const blob = await res.blob();
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `ECHO-Snapshot-${result.company_name}.pdf`;
-            link.click();
-          }}
-        >
-          PDF herunterladen
+        <button style={primaryButton} onClick={downloadPdf} disabled={downloading}>
+          {downloading ? "PDF wird erstellt..." : "PDF herunterladen"}
         </button>
 
         <button
