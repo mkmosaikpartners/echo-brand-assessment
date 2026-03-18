@@ -9,6 +9,7 @@ type Result = {
   url: string;
   pages_analyzed: string[];
   position_statement: string;
+  assessment: string;
   scores: {
     E: number;
     C: number;
@@ -19,6 +20,13 @@ type Result = {
   maturity: string;
   industry_positioning: string;
   tensions: string[];
+  wording_signals: string[];
+  echo_impulses: {
+    E: string;
+    C: string;
+    H: string;
+    O: string;
+  };
   executive_implication: string;
 };
 
@@ -66,26 +74,44 @@ export default function ResultPage() {
         </div>
       </Section>
 
+      <Section title="Einschätzung">
+        <div style={{ fontSize: 18, lineHeight: 1.8 }}>
+          {result.assessment}
+        </div>
+      </Section>
+
+      <Section title="Woran man das sieht">
+        <ul style={{ margin: 0, paddingLeft: 28, fontSize: 18, lineHeight: 1.8 }}>
+          {result.wording_signals.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ul>
+      </Section>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
         <ScoreCard
           title="Erlebnis (E)"
           value={result.scores.E}
           explanation="Erlebnis beschreibt, ob Identität in Kontaktmomenten spürbar, verständlich und orientierend wird."
+          impulse={result.echo_impulses.E}
         />
         <ScoreCard
           title="Charakter (C)"
           value={result.scores.C}
           explanation="Charakter zeigt, ob Haltung, Perspektive und Selbstverständnis klar erkennbar sind."
+          impulse={result.echo_impulses.C}
         />
         <ScoreCard
           title="Homogenität (H)"
           value={result.scores.H}
           explanation="Homogenität zeigt, ob diese Identität systemisch konsistent oder eher situativ und personenabhängig wirkt."
+          impulse={result.echo_impulses.H}
         />
         <ScoreCard
           title="Originalität (O)"
           value={result.scores.O}
           explanation="Originalität zeigt, ob Differenzierung strukturell sichtbar ist oder eher austauschbar bleibt."
+          impulse={result.echo_impulses.O}
         />
       </div>
 
@@ -110,7 +136,19 @@ export default function ResultPage() {
       <div style={{ display: "flex", gap: 16, marginTop: 20, marginBottom: 20 }}>
         <button
           style={primaryButton}
-          onClick={() => window.print()}
+          onClick={async () => {
+            const res = await fetch("/api/pdf", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(result),
+            });
+
+            const blob = await res.blob();
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `ECHO-Snapshot-${result.company_name}.pdf`;
+            link.click();
+          }}
         >
           PDF herunterladen
         </button>
@@ -169,10 +207,12 @@ function ScoreCard({
   title,
   value,
   explanation,
+  impulse,
 }: {
   title: string;
   value: number;
   explanation: string;
+  impulse: string;
 }) {
   return (
     <div
@@ -204,7 +244,22 @@ function ScoreCard({
           />
         </div>
       </div>
-      <div style={{ fontSize: 15, lineHeight: 1.6, color: "#444" }}>{explanation}</div>
+
+      <div style={{ fontSize: 15, lineHeight: 1.6, color: "#444", marginBottom: 12 }}>
+        {explanation}
+      </div>
+
+      <div
+        style={{
+          borderTop: "1px solid #eee",
+          paddingTop: 12,
+          fontSize: 15,
+          lineHeight: 1.6,
+          color: "#222",
+        }}
+      >
+        <b>Impuls:</b> {impulse}
+      </div>
     </div>
   );
 }
