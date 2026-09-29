@@ -8,6 +8,7 @@ import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
 
 const TTL_SECONDS = 60 * 60 * 24 * 90; // Ergebnisse 90 Tage aufbewahren
+const PDF_VERSION = "3"; // erhöhen, wenn sich das Aussehen der Präsentation ändert
 
 /* ================= Hintergrund-Ablauf ================= */
 
@@ -219,7 +220,7 @@ async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Pr
 
   // Freigegebene Ergebnisse nur einmal erzeugen
   if (job.status === "done") {
-    const cached = await env.RESULTS.get(`p:${id}`, "arrayBuffer");
+    const cached = await env.RESULTS.get(`p${PDF_VERSION}:${id}`, "arrayBuffer");
     if (cached) return new Response(cached, { headers });
   }
   const ip = req.headers.get("cf-connecting-ip") || "unbekannt";
@@ -234,7 +235,7 @@ async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Pr
     await page.goto(target, { waitUntil: "networkidle0", timeout: 30000 });
     await page.waitForSelector('body[data-ready="1"]', { timeout: 30000 });
     const pdf = await page.pdf({ width: "297mm", height: "167mm", printBackground: true, preferCSSPageSize: true });
-    if (job.status === "done") await env.RESULTS.put(`p:${id}`, pdf, { expirationTtl: TTL_SECONDS });
+    if (job.status === "done") await env.RESULTS.put(`p${PDF_VERSION}:${id}`, pdf, { expirationTtl: TTL_SECONDS });
     return new Response(pdf, { headers });
   } finally {
     await browser.close().catch(() => {});
