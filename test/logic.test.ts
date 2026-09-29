@@ -148,3 +148,26 @@ describe("Zeitlimit", () => {
     await expect(withTimeout(Promise.resolve(7), 50, "Test")).resolves.toBe(7);
   });
 });
+
+describe("Bearbeiten", () => {
+  it("ändert nur bestehende Textfelder", async () => {
+    const { applyEdit } = await import("../src/edit");
+    const r = {
+      report: { pattern: { name: "Alt", text: "t" }, indicators: [{ id: "E1", level: 2, finding: "f", evidence: [] }], levers: [{ title: "a" }], limits: ["x", "y"] },
+      archetype: { traits: ["a", "b", "c"] },
+    } as never;
+    expect(applyEdit(r, "report.pattern.name", "  Neu \n Name ")).toBe(true);
+    expect(applyEdit(r, "report.indicators.#E1.finding", "Befund")).toBe(true);
+    expect(applyEdit(r, "report.levers.0.title", "Frage?")).toBe(true);
+    expect(applyEdit(r, "report.limits.1", "z")).toBe(true);
+    expect(applyEdit(r, "archetype.traits", "eins · zwei · drei")).toBe(true);
+    expect(applyEdit(r, "report.indicators.#E1.level", "3")).toBe(false);
+    expect(applyEdit(r, "report.neu.feld", "x")).toBe(false);
+    expect(applyEdit(r, "input.url", "x")).toBe(false);
+    const x = r as { report: { pattern: { name: string }; indicators: { finding: string }[]; limits: string[] }; archetype: { traits: string[] } };
+    expect(x.report.pattern.name).toBe("Neu Name");
+    expect(x.report.indicators[0].finding).toBe("Befund");
+    expect(x.report.limits).toEqual(["x", "z"]);
+    expect(x.archetype.traits).toEqual(["eins", "zwei", "drei"]);
+  });
+});

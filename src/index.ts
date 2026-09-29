@@ -6,6 +6,7 @@ import { callModel, DEFAULT_MODEL } from "./analyze";
 import { finalize } from "./finalize";
 import { missingParts } from "./normalize";
 import { withTimeout } from "./timeout";
+import { applyEdit } from "./edit";
 import { mailResultReady, mailReviewWaiting } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
@@ -160,7 +161,7 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
     const { detail: _hidden, ...pub } = job;
     return json({ ...pub, contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
   }
-  return json({ ...job, contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
+  return json({ ...job, ...(admin ? { admin: true } : {}), contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
 }
 
 function isAdmin(req: Request, env: Env): boolean {
@@ -224,6 +225,27 @@ async function handleHealth(env: Env): Promise<Response> {
 }
 
 
+/* ================= Bearbeiten durch Mosaik & Partners ================= */
+
+async function handleEdit(id: string, req: Request, env: Env): Promise<Response> {
+  const raw = await env.RESULTS.get(`r:${id}`);
+  if (!raw) return json({ error: "Nicht gefunden." }, 404);
+  const job = JSON.parse(raw) as JobStatus;
+  if (job.status !== "review" && job.status !== "done") return json({ error: "Dieses Ergebnis kann nicht bearbeitet werden." }, 400);
+  let body: { changes?: Record<string, unknown> };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Ungültige Anfrage." }, 400);
+  }
+  let applied = 0;
+  for (const [path, value] of Object.entries(body.changes || {}).slice(0, 200)) if (applyEdit(job.result, path, value)) applied++;
+  job.result.editedAt = new Date().toISOString();
+  await env.RESULTS.put(`r:${id}`, JSON.stringify(job), { expirationTtl: TTL_SECONDS });
+  await env.RESULTS.delete(`p${PDF_VERSION}:${id}`); // PDF neu erzeugen
+  return json({ ok: true, applied });
+}
+
 /* ================= PDF (Präsentation) ================= */
 
 async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Promise<Response> {
@@ -286,6 +308,8 @@ export default {
     if (m && req.method === "GET") return handlePdf(m[1], req, env, isAdmin(req, env));
 
     if (path === "/api/admin/list") return isAdmin(req, env) ? handleAdminList(env) : json({ error: "Kein Zugriff." }, 403);
+    m = path.match(/^\/api\/admin\/edit\/([a-z0-9]{8,32})$/);
+    if (m && req.method === "POST") return isAdmin(req, env) ? handleEdit(m[1], req, env) : json({ error: "Kein Zugriff." }, 403);
     m = path.match(/^\/api\/admin\/approve\/([a-z0-9]{8,32})$/);
     if (m && req.method === "POST") return isAdmin(req, env) ? handleApprove(m[1], env) : json({ error: "Kein Zugriff." }, 403);
 

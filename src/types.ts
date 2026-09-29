@@ -141,6 +141,7 @@ export interface EchoResult {
   dimensions: DimensionScore[];
   quality: { quotesTotal: number; quotesVerified: number; levelsAdjusted: number };
   model: string;
+  editedAt?: string;
 }
 
 export type JobStatus =

@@ -219,6 +219,9 @@ details input { margin-bottom: 10px; }
 .preview-bar .preview-actions { display: flex; gap: 8px; }
 .preview-bar .btn { padding: 8px 16px; font-size: 14px; }
 .preview-bar.ok { background: var(--blue-2); }
+body.editing [data-edit] { outline: 1.5px dashed var(--taupe); outline-offset: 3px; border-radius: 3px; cursor: text; }
+body.editing [data-edit]:focus { outline: 2px solid var(--blue-4); background: rgba(255, 255, 255, 0.6); }
+body.editing .band [data-edit]:focus { background: rgba(255, 255, 255, 0.12); }
 
 .print-only { display: none; }
 .one { margin-bottom: 20px; }
