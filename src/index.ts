@@ -185,9 +185,9 @@ export default {
 
     // Ergebnisseite: /r/<id> liefert dieselbe HTML-Datei aus
     if (/^\/r\/[a-z0-9]{8,32}\/?$/.test(path)) {
-      return env.ASSETS.fetch(new Request(new URL("/result.html", url), req));
+      return env.ASSETS.fetch(new Request(new URL("/result", url), req));
     }
-    if (path === "/admin") return env.ASSETS.fetch(new Request(new URL("/admin.html", url), req));
+    if (path === "/admin") return env.ASSETS.fetch(new Request(new URL("/admin", url), req));
 
     return env.ASSETS.fetch(req);
   },
