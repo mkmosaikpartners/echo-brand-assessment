@@ -137,8 +137,9 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
 }
 
 function isAdmin(req: Request, env: Env): boolean {
-  const key = new URL(req.url).searchParams.get("key") || req.headers.get("x-admin-key") || "";
-  return !!env.ADMIN_KEY && key === env.ADMIN_KEY;
+  const key = (new URL(req.url).searchParams.get("key") || req.headers.get("x-admin-key") || "").trim();
+  const expected = (env.ADMIN_KEY || "").trim();
+  return expected.length > 0 && key === expected;
 }
 
 async function handleAdminList(env: Env): Promise<Response> {
