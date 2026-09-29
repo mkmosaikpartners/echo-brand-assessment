@@ -2,7 +2,18 @@
   "use strict";
   var app = document.getElementById("app");
   var id = (location.pathname.match(/\/r\/([a-z0-9]+)/) || [])[1];
+  // Admin-Schlüssel aus dem Link übernehmen und sofort aus der Adresszeile entfernen,
+  // damit er nicht versehentlich weitergegeben wird.
   var adminKey = new URLSearchParams(location.search).get("key") || "";
+  try {
+    if (adminKey) {
+      sessionStorage.setItem("echoAdminKey", adminKey);
+      history.replaceState(null, "", location.pathname);
+    } else {
+      adminKey = sessionStorage.getItem("echoAdminKey") || "";
+    }
+  } catch (e) { /* ohne Speicher geht es auch */ }
+  var shareUrl = location.origin + location.pathname;
 
   var LEVELS = ["fehlt", "behauptet", "erkennbar", "belegt & prägnant"];
   var STRENGTH_LABEL = { fehlt: "fehlt", behauptet: "behauptet", erkennbar: "erkennbar", belegt: "belegt" };
@@ -166,6 +177,33 @@
     app.innerHTML = h;
   }
 
+  function previewBanner() {
+    var bar = document.createElement("div");
+    bar.className = "preview-bar";
+    bar.innerHTML =
+      '<div class="wrap"><span><b>Interne Vorschau</b> – noch nicht freigegeben. Wer den Link ohne Passwort öffnet, sieht noch die Warte-Meldung.</span>' +
+      '<span class="preview-actions"><button type="button" class="btn light" id="approveBtn">Freigeben</button>' +
+      '<a class="btn ghost" href="/admin">Zur Liste</a></span></div>';
+    app.insertBefore(bar, app.firstChild);
+    document.getElementById("approveBtn").addEventListener("click", function () {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Wird freigegeben …";
+      fetch("/api/admin/approve/" + id, { method: "POST", headers: { "x-admin-key": adminKey } })
+        .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+        .then(function (x) {
+          if (!x.ok) throw new Error(x.j.error || "Fehler");
+          bar.innerHTML = '<div class="wrap"><span><b>Freigegeben.</b> Dieser Link ist jetzt für alle sichtbar: ' + esc(shareUrl) + "</span></div>";
+          bar.classList.add("ok");
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          btn.textContent = "Freigeben";
+          alert("Freigabe hat nicht geklappt: " + e.message);
+        });
+    });
+  }
+
   var tries = 0;
   function poll() {
     if (!id) { message("Kein Ergebnis", "Dieser Link ist unvollständig."); return; }
@@ -181,9 +219,15 @@
           else message("Das dauert ungewöhnlich lange", "Bitte lade die Seite in ein paar Minuten neu.");
           return;
         }
+        if (j.status === "review" && j.result) {
+          // Interne Vorschau für Mosaik & Partners
+          render(j);
+          previewBanner();
+          return;
+        }
         if (j.status === "review") {
           message("Euer Echo ist gemessen.", "Das Ergebnis wird von Mosaik & Partners noch kurz geprüft und erscheint dann unter diesem Link. Speichere ihn dir – oder schau später wieder vorbei.",
-            '<p class="muted" style="margin-top:14px">' + esc(location.href) + "</p>");
+            '<p class="muted" style="margin-top:14px">' + esc(shareUrl) + "</p>");
           return;
         }
         if (j.status === "error") {
