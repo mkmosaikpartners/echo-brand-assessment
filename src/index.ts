@@ -4,6 +4,7 @@ import { NonRetryableError } from "cloudflare:workflows";
 import { crawlSite, EchoError } from "./crawl";
 import { callModel, DEFAULT_MODEL } from "./analyze";
 import { finalize } from "./finalize";
+import { missingParts } from "./normalize";
 import { mailResultReady, mailReviewWaiting } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
@@ -45,19 +46,24 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
       });
 
       const model = this.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
-      const reportJson = await step.do(
-        "einstufen",
-        { retries: { limit: 1, delay: "20 seconds" }, timeout: "12 minutes" },
-        async () => {
+      const ask = (name: string) =>
+        step.do(name, { retries: { limit: 1, delay: "20 seconds" }, timeout: "8 minutes" }, async () => {
           try {
             return JSON.stringify(await callModel(this.env.ANTHROPIC_API_KEY, model, crawl, p.description));
           } catch (e) {
             if (e instanceof EchoError) throw new NonRetryableError(e.message);
             throw e;
           }
-        },
-      );
-      const report = JSON.parse(reportJson) as ModelReport;
+        });
+      let report = JSON.parse(await ask("einstufen")) as ModelReport;
+      let missing = missingParts(report);
+      if (missing.length) {
+        // Unvollständige Antwort: einmal neu fragen, in einem eigenen Schritt
+        const second = JSON.parse(await ask("einstufen, zweiter Anlauf")) as ModelReport;
+        const missing2 = missingParts(second);
+        if (missing2.length < missing.length) { report = second; missing = missing2; }
+      }
+      if (missing.includes("Charakter") || missing.length > 2) throw new Error(`Analyse unvollständig (${missing.join(", ")}).`);
 
       await step.do("auswerten und speichern", async () => {
         const result = finalize(p, crawl, report, model);

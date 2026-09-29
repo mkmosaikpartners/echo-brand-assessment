@@ -1,7 +1,7 @@
 import { REPORT_TOOL, SYSTEM_PROMPT } from "./rubric";
 import type { CrawlResult, ModelReport } from "./types";
 import { EchoError } from "./crawl";
-import { missingParts, normalizeReport } from "./normalize";
+import { normalizeReport } from "./normalize";
 
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 
@@ -68,17 +68,7 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
         messages: [{ role: "user", content }],
       }),
     });
-  // Bis zu zwei Anläufe: Ist die Antwort unvollständig, wird einmal neu gefragt.
-  let best: ModelReport | null = null;
-  let bestMissing: string[] = [];
-  for (let round = 0; round < 2; round++) {
-    const report = await askOnce();
-    const miss = missingParts(report);
-    if (!miss.length) return report;
-    if (!best || miss.length < bestMissing.length) { best = report; bestMissing = miss; }
-  }
-  if (best && bestMissing.length <= 2 && !bestMissing.includes("Charakter")) return best; // kleine Lücken: Seite blendet leere Teile aus
-  throw new Error(`Analyse unvollständig (${bestMissing.join(", ")}).`);
+  return askOnce();
 
   async function askOnce(): Promise<ModelReport> {
     let res = await send();
