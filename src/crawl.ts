@@ -27,7 +27,7 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
 
     // Startseite
     let home = await visit(page, url);
-    if (!home) throw new EchoError("Die Startseite liess sich nicht laden. Ist die Adresse korrekt und öffentlich erreichbar?");
+    if (!home) throw new EchoError(`Die Startseite liess sich nicht laden. Ist die Adresse korrekt und öffentlich erreichbar? (${lastVisitProblem.slice(0, 200)})`);
     let homeUrl = page.url();
 
     // Deutsche Fassung bevorzugen
@@ -94,18 +94,34 @@ function snapshot(url: string, role: PageRole, e: Extracted, max: number): PageS
   return { url, role, title: e.title, lang: e.lang, text: e.text.slice(0, max), alts: e.alts.slice(0, 25) };
 }
 
+let lastVisitProblem = "";
+
 async function visit(page: Page, url: string): Promise<Extracted | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await page.goto(url, { waitUntil: "networkidle2", timeout: 25000 });
+      let res = null;
+      try {
+        res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      } catch (e) {
+        // Zeitüberschreitung beim Laden: trotzdem versuchen, was schon da ist
+        lastVisitProblem = `Laden: ${e instanceof Error ? e.message : String(e)}`;
+      }
       if (res && res.status() === 429 && attempt === 0) {
         await new Promise((r) => setTimeout(r, 3000));
         continue;
       }
-      if (res && res.status() >= 400) return null;
+      if (res && res.status() >= 400) {
+        lastVisitProblem = `HTTP ${res.status()}`;
+        return null;
+      }
+      // Kurz warten, bis Inhalte nachgeladen sind – aber nie länger als 8 Sekunden
+      await page.waitForNetworkIdle({ idleTime: 800, timeout: 8000 }).catch(() => {});
       await acceptCookieBanner(page);
-      return (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
-    } catch {
+      const data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
+      if (data && data.text) return data;
+      lastVisitProblem = "kein Text auf der Seite";
+    } catch (e) {
+      lastVisitProblem = e instanceof Error ? e.message : String(e);
       if (attempt === 1) return null;
     }
   }
