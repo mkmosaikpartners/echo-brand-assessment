@@ -36,28 +36,27 @@
 .d-cover-main h1 { font-size: 4.2em; line-height: 1.05; margin: 0.15em 0 0.2em; max-width: 14em; }
 .d-cover-main .d-kick { font-size: 0.8em; }
 .d-cover-main .d-muted { font-size: 1.05em; }
-.d-letters { display: flex; align-items: flex-end; gap: 0.25em; font-weight: 900; line-height: 0.8; }
-.d-letters span:nth-child(1) { font-size: 6em; color: var(--taupe); }
-.d-letters span:nth-child(2) { font-size: 4.5em; color: var(--blue-4); }
-.d-letters span:nth-child(3) { font-size: 3.2em; color: var(--blue-2); }
-.d-letters span:nth-child(4) { font-size: 2.2em; color: var(--blue); }
+.d-letters { display: flex; align-items: flex-end; gap: 0.25em; font-weight: 600; line-height: 0.8; }
+.d-letters { gap: 0.9em; }
+.d-letters span { font-size: 4em; }
+.d-letters span:nth-child(1) { color: var(--taupe); }
+.d-letters span:nth-child(2) { color: var(--blue-4); }
+.d-letters span:nth-child(3) { color: var(--blue-2); }
+.d-letters span:nth-child(4) { color: var(--blue); }
 
 /* In einem Satz */
 .d-slide blockquote { font-size: 1.75em; font-weight: 600; line-height: 1.25; max-width: 30em; margin-top: 0.3em; }
 .d-center .d-in { justify-content: center; }
 
 /* Profil */
-.d-profile { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 1em; flex: 1; padding-top: 0.6em; }
+.d-profile { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; align-content: center; gap: 1em; flex: 1; padding-top: 0.6em; }
 .d-profile > div { display: flex; flex-direction: column; align-items: center; gap: 0.7em; text-align: center; }
-.d-profile b { font-weight: 900; line-height: 0.8; }
-.d-profile > div:nth-child(1) b { font-size: 7.5em; }
-.d-profile > div:nth-child(2) b { font-size: 5.7em; }
-.d-profile > div:nth-child(3) b { font-size: 4.1em; }
-.d-profile > div:nth-child(4) b { font-size: 2.8em; }
+.d-profile b { font-weight: 600; line-height: 0.8; }
+.d-profile b { font-size: 6.2em; }
 .d-profile span { font-weight: 600; font-size: 1.05em; line-height: 1.3; display: flex; flex-direction: column; }
 .d-profile small { font-weight: 400; font-size: 0.85em; color: var(--blue-muted); }
 .d-legend { display: flex; justify-content: center; gap: 1.6em; font-size: 0.8em; color: var(--blue-muted); }
-.d-legend b { font-weight: 900; font-size: 1.3em; margin-right: 0.35em; }
+.d-legend b { font-weight: 600; font-size: 1.3em; margin-right: 0.35em; }
 
 /* Muster */
 .d-blue .d-in { justify-content: center; }
@@ -66,7 +65,7 @@
 
 /* Kopf einer Dimension */
 .d-head { display: flex; align-items: center; gap: 0.6em; padding-bottom: 0.7em; border-bottom: 1px solid var(--line); }
-.d-head > b { font-size: 2.8em; font-weight: 900; line-height: 0.8; }
+.d-head > b { font-size: 2.8em; font-weight: 600; line-height: 0.8; }
 .d-head h2 { font-size: 1.35em; line-height: 1.15; }
 .d-head h2 span { font-weight: 400; color: var(--blue-muted); }
 .d-head p { color: var(--blue-3); font-size: 0.95em; }
@@ -104,7 +103,7 @@
 .d-levers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1em; align-items: stretch; }
 .d-lever { background: var(--white); border-radius: 14px; padding: 1.2em 1.3em; display: flex; flex-direction: column; gap: 0.55em; }
 .d-lever-top { display: flex; justify-content: space-between; align-items: center; }
-.d-lever-top b { font-size: 2.3em; font-weight: 900; line-height: 1; color: var(--taupe); }
+.d-lever-top b { font-size: 2.3em; font-weight: 600; line-height: 1; color: var(--taupe); }
 .d-lever-top span { font-size: 0.68em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.35em 0.8em; border-radius: 999px; background: var(--sand); color: var(--blue-3); }
 .d-lever h3 { font-size: 1.3em; line-height: 1.2; }
 .d-lever p { font-size: 0.92em; color: var(--blue-3); }
