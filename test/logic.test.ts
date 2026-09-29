@@ -171,3 +171,10 @@ describe("Bearbeiten", () => {
     expect(x.archetype.traits).toEqual(["eins", "zwei", "drei"]);
   });
 });
+
+describe("Einfacher Abruf", () => {
+  it("übersetzt HTML-Sonderzeichen", async () => {
+    const { decodeEntities } = await import("../src/fetch-page");
+    expect(decodeEntities("Z&uuml;rich &ndash; &laquo;Test&raquo; &amp; &#8364; &#x41;")).toBe("Zürich – «Test» & € A");
+  });
+});

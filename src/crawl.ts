@@ -3,6 +3,7 @@ import { selectPages, type LinkInfo } from "./pages";
 import type { CrawlResult, PageRole, PageSnapshot } from "./types";
 import { COOKIE_SCRIPT, EXTRACT_SCRIPT } from "./page-scripts";
 import { withTimeout } from "./timeout";
+import { fetchPage } from "./fetch-page";
 
 const MAX_TEXT_PAGE = 14000;
 const MAX_TEXT_COMPETITOR = 6000;
@@ -42,26 +43,61 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
       page = await openPage();
       return (await visit(page, target)) || first;
     };
+    // Zweiter Weg ohne Browser (offen gekennzeichneter Abruf), wenn der Browser abgewiesen wird
+    let plainMode = false;
+    let blocked = false;
+    const readPlain = async (target: string): Promise<{ data: Extracted; url: string } | null> => {
+      try {
+        const f = await fetchPage(target);
+        if (!f) return null;
+        if (f.status === 401 || f.status === 403) blocked = true;
+        if (f.status >= 400 || f.text.length < MIN_READABLE) return null;
+        return { data: f, url: f.url };
+      } catch {
+        return null;
+      }
+    };
+    const readAny = async (target: string): Promise<{ data: Extracted; url: string } | null> => {
+      if (!plainMode) {
+        const viaBrowser = await visitRobust(target);
+        if (viaBrowser && viaBrowser.text.length >= MIN_READABLE) return { data: viaBrowser, url: page.url() };
+      }
+      return readPlain(target);
+    };
 
     // Startseite
     let home = await visitRobust(url);
-    if (!home) throw new EchoError(`Die Startseite liess sich nicht laden. Ist die Adresse korrekt und öffentlich erreichbar? (${lastVisitProblem.slice(0, 200)})`);
     let homeUrl = page.url();
+    if (!home || home.text.length < MIN_READABLE) {
+      const browserProblem = lastVisitProblem;
+      const plain = await readPlain(url);
+      if (plain) {
+        plainMode = true;
+        home = plain.data;
+        homeUrl = plain.url;
+        notes.push("Die Website weist automatische Browser ab; gelesen wurde der ausgelieferte Seitentext ohne Bild. Die Atmosphäre ist deshalb nur aus der Sprache beurteilt.");
+      } else if (blocked || /HTTP (401|403)/.test(browserProblem)) {
+        throw new EchoError("Die Website blockiert automatische Zugriffe, zum Beispiel durch einen Bot-Schutz. ECHO kann sie deshalb nicht lesen. Falls es eure eigene Website ist, kann eure Webagentur den Zugriff für «ECHO-Snapshot» freigeben.");
+      } else if (!home) {
+        throw new EchoError(`Die Startseite liess sich nicht laden. Ist die Adresse korrekt und öffentlich erreichbar? (${browserProblem.slice(0, 200)})`);
+      }
+    }
+    if (!home) throw new EchoError("Die Startseite liess sich nicht laden.");
 
     // Deutsche Fassung bevorzugen
     if (!home.lang.toLowerCase().startsWith("de") && home.germanAlternate) {
-      const de = await visit(page, home.germanAlternate);
-      if (de && de.text.length >= MIN_READABLE) {
+      const de = await readAny(home.germanAlternate);
+      if (de) {
         notes.push(`Die Startseite war nicht deutsch (${home.lang || "unbekannt"}); gelesen wurde die deutsche Fassung.`);
-        home = de;
-        homeUrl = page.url();
+        home = de.data;
+        homeUrl = de.url;
       }
     } else if (!home.lang.toLowerCase().startsWith("de") && home.lang) {
       notes.push(`Die Website ist nicht deutschsprachig (${home.lang}). Beurteilt wurde die ausgelieferte Sprachfassung.`);
     }
 
     let screenshot: string | undefined;
-    try {
+    if (!plainMode) try {
       screenshot = (await withTimeout(page.screenshot({ type: "jpeg", quality: 55, encoding: "base64" }), 20000, "Bildschirmfoto")) as string;
     } catch {
       notes.push("Vom ersten Bildschirm konnte kein Bild gemacht werden; die Atmosphäre ist nur aus der Sprache beurteilt.");
@@ -75,9 +111,9 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
         notes.push("Aus Zeitgründen wurden nicht alle Unterseiten gelesen.");
         break;
       }
-      const sub = await visitRobust(target.url);
-      if (sub && sub.text.length >= MIN_READABLE) {
-        pages.push(snapshot(page.url(), target.role, sub, MAX_TEXT_PAGE));
+      const sub = await readAny(target.url);
+      if (sub) {
+        pages.push(snapshot(sub.url, target.role, sub.data, MAX_TEXT_PAGE));
       } else {
         notes.push(`Die Seite ${target.url} liess sich nicht lesen.`);
       }
@@ -104,8 +140,9 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
         notes.push(`Die Website des Mitbewerbers ${c} wurde aus Zeitgründen nicht gelesen.`);
         continue;
       }
-      const cp = await visit(page, c);
-      if (cp && cp.text.length >= MIN_READABLE) comp.push(snapshot(page.url(), "mitbewerber", cp, MAX_TEXT_COMPETITOR));
+      const viaBrowser = plainMode ? null : await visit(page, c);
+      const cp = viaBrowser && viaBrowser.text.length >= MIN_READABLE ? { data: viaBrowser, url: page.url() } : await readPlain(c);
+      if (cp) comp.push(snapshot(cp.url, "mitbewerber", cp.data, MAX_TEXT_COMPETITOR));
       else notes.push(`Die Website des Mitbewerbers ${c} liess sich nicht lesen.`);
     }
 

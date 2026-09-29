@@ -146,3 +146,23 @@ ${button(`${baseUrl(env)}/admin`, "Zur Freigabe")}`,
     console.log("mailReviewWaiting", e);
   }
 }
+
+/** Meldet Mosaik & Partners, dass eine Analyse gescheitert ist – damit kein Interessent verloren geht. */
+export async function mailFailed(env: Env, id: string, url: string, reason: string): Promise<void> {
+  try {
+    const to = (env.NOTIFY_EMAIL || "").trim();
+    if (!to) return;
+    const c = (await loadContact(env, id)) || {};
+    const subject = `ECHO Snapshot nicht möglich: ${url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}`;
+    const html = layout(
+      `<p style="margin:0 0 14px">Die Analyse von <b>${esc(url)}</b> hat nicht geklappt.</p>
+<p style="margin:0 0 6px">Grund: ${esc(reason)}</p>
+<p style="margin:0 0 14px">Bestellt von: ${esc(c.name || "–")}${c.email ? ` · <a href="mailto:${esc(c.email)}" style="color:#28354f">${esc(c.email)}</a>` : ""}</p>
+<p style="margin:0">Vielleicht lohnt sich eine persönliche Nachricht.</p>`,
+    );
+    const text = `Die Analyse von ${url} hat nicht geklappt.\nGrund: ${reason}\nBestellt von: ${c.name || "–"} ${c.email || ""}`;
+    await send(env, to, subject, html, text);
+  } catch (e) {
+    console.log("mailFailed", e);
+  }
+}

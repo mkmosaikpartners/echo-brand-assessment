@@ -7,7 +7,7 @@ import { finalize } from "./finalize";
 import { missingParts } from "./normalize";
 import { withTimeout } from "./timeout";
 import { applyEdit } from "./edit";
-import { mailResultReady, mailReviewWaiting } from "./mail";
+import { mailFailed, mailResultReady, mailReviewWaiting } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
 
@@ -83,6 +83,7 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await setStatus({ status: "error", createdAt, url: p.url, error: friendlyError(msg), detail: msg.slice(0, 1000) });
+      await withTimeout(mailFailed(this.env, p.id, p.url, friendlyError(msg)), 30000, "Mail").catch(() => {});
       throw e;
     }
   }
