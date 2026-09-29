@@ -140,7 +140,11 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
   if (!raw) return json({ error: "Dieses Ergebnis gibt es nicht oder nicht mehr." }, 404);
   const job = JSON.parse(raw) as JobStatus;
   if (job.status === "review" && !admin) return json({ status: "review", createdAt: job.createdAt, url: job.url });
-  // Testphase: technische Fehlerdetails für alle sichtbar. Vor dem Launch wieder auf Admin beschränken.
+  // Technische Fehlerdetails nur für Mosaik & Partners
+  if (job.status === "error" && !admin) {
+    const { detail: _hidden, ...pub } = job;
+    return json({ ...pub, contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
+  }
   return json({ ...job, contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
 }
 
@@ -256,7 +260,7 @@ export default {
     const path = url.pathname;
 
     if (path === "/api/analyze" && req.method === "POST") return handleAnalyze(req, env);
-    if (path === "/api/health") return handleHealth(env);
+    if (path === "/api/health") return isAdmin(req, env) ? handleHealth(env) : json({ error: "Kein Zugriff." }, 403);
 
     let m = path.match(/^\/api\/result\/([a-z0-9]{8,32})$/);
     if (m && req.method === "GET") return handleResult(m[1], env, isAdmin(req, env));
