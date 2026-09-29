@@ -23,7 +23,11 @@
   "vars": {
     "ANTHROPIC_MODEL": "claude-sonnet-5-5",
     "REVIEW_MODE": "on",
-    "RATE_LIMIT_PER_HOUR": "5"
+    "RATE_LIMIT_PER_HOUR": "5",
+    "PUBLIC_URL": "https://echo.mosaik.partners",
+    "MAIL_FROM": "Mosaik & Partners <echo@mosaik.partners>",
+    "MAIL_REPLY_TO": "mk@mosaik.partners",
+    "NOTIFY_EMAIL": "mk@mosaik.partners"
   },
   "observability": { "enabled": true }
 }

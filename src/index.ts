@@ -4,6 +4,7 @@ import { NonRetryableError } from "cloudflare:workflows";
 import { crawlSite, EchoError } from "./crawl";
 import { callModel, DEFAULT_MODEL } from "./analyze";
 import { finalize } from "./finalize";
+import { mailResultReady, mailReviewWaiting } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
 
@@ -62,6 +63,13 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
         const result = finalize(p, crawl, report, model);
         const review = (this.env.REVIEW_MODE || "").toLowerCase() === "on";
         await setStatus({ status: review ? "review" : "done", createdAt, url: p.url, result });
+        return true;
+      });
+
+      await step.do("benachrichtigen", async () => {
+        const job = JSON.parse((await this.env.RESULTS.get(`r:${p.id}`)) || "{}") as JobStatus;
+        if (job.status === "review") await mailReviewWaiting(this.env, p.id, job);
+        if (job.status === "done") await mailResultReady(this.env, p.id, job);
         return true;
       });
     } catch (e) {
@@ -181,7 +189,9 @@ async function handleApprove(id: string, env: Env): Promise<Response> {
   if (!raw) return json({ error: "Nicht gefunden." }, 404);
   const job = JSON.parse(raw) as JobStatus;
   if (job.status !== "review") return json({ error: "Dieses Ergebnis wartet nicht auf Freigabe." }, 400);
-  await env.RESULTS.put(`r:${id}`, JSON.stringify({ ...job, status: "done" }), { expirationTtl: TTL_SECONDS });
+  const approved = { ...job, status: "done" } as JobStatus;
+  await env.RESULTS.put(`r:${id}`, JSON.stringify(approved), { expirationTtl: TTL_SECONDS });
+  await mailResultReady(env, id, approved);
   return json({ ok: true });
 }
 

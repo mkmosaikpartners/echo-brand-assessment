@@ -279,7 +279,7 @@
           return;
         }
         if (j.status === "review") {
-          message("Euer Echo ist gemessen.", "Das Ergebnis wird von Mosaik & Partners noch kurz geprüft und erscheint dann unter diesem Link. Speichere ihn dir – oder schau später wieder vorbei.",
+          message("Euer Echo ist gemessen.", "Das Ergebnis wird von Mosaik & Partners noch kurz geprüft. Sobald es freigegeben ist, bekommst du den Link per E-Mail – es erscheint dann auch unter dieser Adresse.",
             '<p class="muted" style="margin-top:14px">' + esc(shareUrl) + "</p>");
           return;
         }
