@@ -67,6 +67,7 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
         tool_choice: opts.forceTool ? { type: "tool", name: REPORT_TOOL.name } : { type: "auto" },
         messages: [{ role: "user", content }],
       }),
+      signal: AbortSignal.timeout(6 * 60 * 1000),
     });
   return askOnce();
 

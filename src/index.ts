@@ -5,6 +5,7 @@ import { crawlSite, EchoError } from "./crawl";
 import { callModel, DEFAULT_MODEL } from "./analyze";
 import { finalize } from "./finalize";
 import { missingParts } from "./normalize";
+import { withTimeout } from "./timeout";
 import { mailResultReady, mailReviewWaiting } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
@@ -31,7 +32,7 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
         { retries: { limit: 1, delay: "10 seconds" }, timeout: "4 minutes" },
         async () => {
           try {
-            return JSON.stringify(await crawlSite(this.env.BROWSER, p.url, p.competitors));
+            return JSON.stringify(await withTimeout(crawlSite(this.env.BROWSER, p.url, p.competitors), 210000, "Website lesen"));
           } catch (e) {
             if (e instanceof EchoError) throw new NonRetryableError(e.message);
             throw e;
@@ -74,8 +75,8 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
 
       await step.do("benachrichtigen", async () => {
         const job = JSON.parse((await this.env.RESULTS.get(`r:${p.id}`)) || "{}") as JobStatus;
-        if (job.status === "review") await mailReviewWaiting(this.env, p.id, job);
-        if (job.status === "done") await mailResultReady(this.env, p.id, job);
+        if (job.status === "review") await withTimeout(mailReviewWaiting(this.env, p.id, job), 30000, "Mail").catch(() => {});
+        if (job.status === "done") await withTimeout(mailResultReady(this.env, p.id, job), 30000, "Mail").catch(() => {});
         return true;
       });
     } catch (e) {
@@ -88,7 +89,7 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
 
 function friendlyError(msg: string): string {
   if (/API-Schlüssel|401|authentication/i.test(msg)) return "Der Analyse-Dienst ist im Moment nicht erreichbar. Bitte versuche es später erneut.";
-  if (/timed? ?out|timeout/i.test(msg)) return "Die Website hat zu lange gebraucht, um zu antworten. Bitte versuche es später erneut.";
+  if (/timed? ?out|timeout|Zeitüberschreitung/i.test(msg)) return "Die Website hat zu lange gebraucht, um zu antworten. Bitte versuche es später erneut.";
   if (/^(Die |Auf der |Ausser )/.test(msg)) return msg;
   return "Bei der Analyse ist ein Fehler aufgetreten. Bitte versuche es später erneut.";
 }
@@ -248,17 +249,17 @@ async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Pr
 
   const origin = new URL(req.url).origin;
   const target = `${origin}/r/${id}` + (job.status === "review" ? `?key=${encodeURIComponent((env.ADMIN_KEY || "").trim())}` : "");
-  const browser = await puppeteer.launch(env.BROWSER);
+  const browser = await withTimeout(puppeteer.launch(env.BROWSER), 30000, "Browser starten");
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
     await page.goto(target, { waitUntil: "networkidle0", timeout: 30000 });
     await page.waitForSelector('body[data-ready="1"]', { timeout: 30000 });
-    const pdf = await page.pdf({ width: "297mm", height: "167mm", printBackground: true, preferCSSPageSize: true });
+    const pdf = await withTimeout(page.pdf({ width: "297mm", height: "167mm", printBackground: true, preferCSSPageSize: true }), 45000, "PDF erzeugen");
     if (job.status === "done") await env.RESULTS.put(`p${PDF_VERSION}:${id}`, pdf, { expirationTtl: TTL_SECONDS });
     return new Response(pdf, { headers });
   } finally {
-    await browser.close().catch(() => {});
+    await withTimeout(browser.close(), 10000, "Browser schliessen").catch(() => {});
   }
 }
 

@@ -140,3 +140,11 @@ describe("Antwort des Modells glätten", () => {
     expect(missingParts(normalizeReport({}))).toContain("Charakter");
   });
 });
+
+describe("Zeitlimit", () => {
+  it("bricht ein hängendes Versprechen ab und lässt schnelle durch", async () => {
+    const { withTimeout } = await import("../src/timeout");
+    await expect(withTimeout(new Promise(() => {}), 50, "Test")).rejects.toThrow("Zeitüberschreitung");
+    await expect(withTimeout(Promise.resolve(7), 50, "Test")).resolves.toBe(7);
+  });
+});

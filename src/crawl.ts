@@ -2,6 +2,7 @@ import puppeteer, { type Browser, type Page } from "@cloudflare/puppeteer";
 import { selectPages, type LinkInfo } from "./pages";
 import type { CrawlResult, PageRole, PageSnapshot } from "./types";
 import { COOKIE_SCRIPT, EXTRACT_SCRIPT } from "./page-scripts";
+import { withTimeout } from "./timeout";
 
 const MAX_TEXT_PAGE = 14000;
 const MAX_TEXT_COMPETITOR = 6000;
@@ -21,10 +22,10 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
   const notes: string[] = [];
   let browser: Browser | null = null;
   try {
-    browser = await puppeteer.launch(browserBinding);
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1440, height: 900 });
-    await page.setExtraHTTPHeaders({ "Accept-Language": "de-CH,de;q=0.9,en;q=0.4" });
+    browser = await withTimeout(puppeteer.launch(browserBinding, { keep_alive: 600000 }), 60000, "Browser starten");
+    const page = await withTimeout(browser.newPage(), 30000, "Seite öffnen");
+    await withTimeout(page.setViewport({ width: 1440, height: 900 }), 15000, "Ansicht setzen");
+    await withTimeout(page.setExtraHTTPHeaders({ "Accept-Language": "de-CH,de;q=0.9,en;q=0.4" }), 15000, "Sprache setzen");
 
     // Startseite
     let home = await visit(page, url);
@@ -45,7 +46,7 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
 
     let screenshot: string | undefined;
     try {
-      screenshot = (await page.screenshot({ type: "jpeg", quality: 55, encoding: "base64" })) as string;
+      screenshot = (await withTimeout(page.screenshot({ type: "jpeg", quality: 55, encoding: "base64" }), 20000, "Bildschirmfoto")) as string;
     } catch {
       notes.push("Vom ersten Bildschirm konnte kein Bild gemacht werden; die Atmosphäre ist nur aus der Sprache beurteilt.");
     }
@@ -85,7 +86,7 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
 
     return { pages, competitors: comp, screenshot, notes };
   } finally {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await withTimeout(browser.close(), 10000, "Browser schliessen").catch(() => {});
   }
 }
 
@@ -98,6 +99,15 @@ function snapshot(url: string, role: PageRole, e: Extracted, max: number): PageS
 let lastVisitProblem = "";
 
 async function visit(page: Page, url: string): Promise<Extracted | null> {
+  try {
+    return await withTimeout(visitInner(page, url), 60000, `Seite ${url}`);
+  } catch (e) {
+    lastVisitProblem = e instanceof Error ? e.message : String(e);
+    return null;
+  }
+}
+
+async function visitInner(page: Page, url: string): Promise<Extracted | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       let res = null;
@@ -118,7 +128,7 @@ async function visit(page: Page, url: string): Promise<Extracted | null> {
       // Kurz warten, bis Inhalte nachgeladen sind – aber nie länger als 8 Sekunden
       await page.waitForNetworkIdle({ idleTime: 800, timeout: 8000 }).catch(() => {});
       await acceptCookieBanner(page);
-      const data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
+      const data = (await withTimeout(page.evaluate(EXTRACT_SCRIPT), 15000, "Text lesen")) as Extracted;
       if (data && data.text) return data;
       lastVisitProblem = "kein Text auf der Seite";
     } catch (e) {
@@ -132,7 +142,7 @@ async function visit(page: Page, url: string): Promise<Extracted | null> {
 /** Schliesst gängige Cookie-Banner, damit sie den Text nicht überdecken. Fehler werden ignoriert. */
 async function acceptCookieBanner(page: Page): Promise<void> {
   try {
-    await page.evaluate(COOKIE_SCRIPT);
+    await withTimeout(page.evaluate(COOKIE_SCRIPT), 8000, "Cookie-Hinweis");
   } catch {
     /* egal */
   }
