@@ -170,9 +170,12 @@
     h += rows(r, ["O1", "O2", "O3"]) + "</div></section>";
 
     // Hebel
-    h += '<section class="levers"><div class="wrap"><div class="kicker">Woran ihr arbeiten solltet</div><h2>Drei Hebel</h2><div class="lever-grid">';
+    h += '<section class="levers"><div class="wrap"><div class="kicker">Worüber es sich nachzudenken lohnt</div><h2>Drei Hebel</h2><div class="lever-grid">';
     h += (rep.levers || []).map(function (l, i) {
-      return '<div class="lever"><div class="lever-top"><div class="nr">' + (i + 1) + '</div><div class="chip">' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + "</div></div><h3>" + esc(l.title) + "</h3><p>" + esc(l.why) + '</p><div class="first"><b>Erster Schritt:</b> ' + esc(l.first_step) + "</div></div>";
+      var body = l.question
+        ? '<div class="lv-part"><div class="lv-label">Was wir sehen</div><p>' + esc(l.why) + '</p></div><div class="lv-part lv-q"><div class="lv-label">Die Frage an euch</div><p>' + esc(l.question) + '</p></div><div class="first"><div class="lv-label">Ein möglicher Weg</div>' + esc(l.option) + "</div>"
+        : "<p>" + esc(l.why) + '</p><div class="first"><b>Erster Schritt:</b> ' + esc(l.first_step) + "</div>";
+      return '<div class="lever"><div class="lever-top"><div class="nr">' + (i + 1) + '</div><div class="chip">' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + "</div></div><h3>" + esc(l.title) + "</h3>" + body + "</div>";
     }).join("");
     h += "</div></div></section>";
 

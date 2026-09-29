@@ -171,6 +171,9 @@ details input { margin-bottom: 10px; }
 .lever h3 { font-size: 25px; line-height: 1.2; }
 .lever .first { margin-top: auto; padding-top: 14px; border-top: 1px solid #efe9de; font-size: 17px; }
 .lever-top { display: flex; justify-content: space-between; align-items: center; }
+.lv-label { font-size: 12px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--blue-muted); margin-bottom: 4px; }
+.lv-part p { font-size: 17px; }
+.lv-q p { font-weight: 600; color: var(--blue); }
 
 .closer { background: var(--taupe-dark); color: var(--white); }
 .closer .wrap { padding-top: 80px; padding-bottom: 80px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; }

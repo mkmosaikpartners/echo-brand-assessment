@@ -133,9 +133,12 @@
     }
 
     // Hebel
-    add("d-cream", '<div class="d-kick">Woran ihr arbeiten solltet</div><h2 class="d-h2">Drei Hebel</h2><div class="d-levers">' +
+    add("d-cream", '<div class="d-kick">Worüber es sich nachzudenken lohnt</div><h2 class="d-h2">Drei Hebel</h2><div class="d-levers">' +
       (rep.levers || []).map(function (l, i) {
-        return '<div class="d-lever"><div class="d-lever-top"><b>' + (i + 1) + '</b><span>' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + "</span></div><h3>" + esc(l.title) + "</h3><p>" + esc(l.why) + '</p><div class="d-first"><b>Erster Schritt:</b> ' + esc(l.first_step) + "</div></div>";
+        var body = l.question
+          ? '<div class="d-lv-label">Was wir sehen</div><p>' + esc(l.why) + '</p><div class="d-lv-label">Die Frage an euch</div><p class="d-lv-q">' + esc(l.question) + '</p><div class="d-first"><div class="d-lv-label">Ein möglicher Weg</div>' + esc(l.option) + "</div>"
+          : "<p>" + esc(l.why) + '</p><div class="d-first"><b>Erster Schritt:</b> ' + esc(l.first_step) + "</div>";
+        return '<div class="d-lever"><div class="d-lever-top"><b>' + (i + 1) + '</b><span>' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + "</span></div><h3>" + esc(l.title) + "</h3>" + body + "</div>";
       }).join("") + "</div>");
 
     // Abschluss

@@ -52,13 +52,18 @@ Für jede gelesene Seite: wie der Archetyp dort wirkt, Anrede, Absender, Verspre
 Ein anschauliches, sofort verständliches Bild der Marke in 2–3 Wörtern, das man einer Geschäftsleitung ohne Erklärung sagen kann (Stil: «Diskreter Platzhirsch», «Gewicht ohne Gesicht», «Gläserne Stadtwerkstatt»). Keine Stein-, Wellen- oder Ufer-Metaphorik. Dazu zwei Sätze Klartext.
 
 ## Hebel
-Genau drei Hebel, priorisiert: je Titel (kurz, als Aufforderung), Dimension, Begründung (1–2 Sätze, mit Bezug auf einen Befund) und ein erster Schritt, mit dem man morgen beginnen kann. Keine Methodennamen als Rezept (kein «macht einen Golden Circle»); die Wahl der Werkzeuge ist Sache des Gesprächs.
+Genau drei Hebel, priorisiert. Sie sollen die Marke ins Grübeln bringen, nicht anweisen: Das Unternehmen kennt seine Kundschaft besser als jeder Blick von aussen, und was von aussen wie eine Lücke aussieht, kann gewollt sein (z. B. ein herbstliches Bild statt Laden und Ware, weil die Stammkundschaft genau diese Stimmung sucht). Pro Hebel:
+- title: kurz, als offene Frage oder Spannung zwischen zwei Möglichkeiten – nie als Befehl (z. B. «Jahreszeit oder Laden – was soll der erste Blick zeigen?»).
+- why («Was wir sehen»): 1–2 Sätze, was jemandem von aussen auffällt, mit Bezug auf einen Befund. Beschreiben, nicht über Absichten urteilen.
+- question («Die Frage an euch»): eine echte Frage, die eine bewusste Absicht hinter dem heutigen Zustand ernst nimmt und beide Lesarten nennt (z. B. «Zeigt der herbstliche Einstieg bewusst die Jahreszeit statt den Laden – und reicht das für jemanden, der euch noch nicht kennt?»).
+- option («Ein möglicher Weg»): so konkret, dass man sich etwas darunter vorstellen kann, aber im Konjunktiv und an eine Bedingung geknüpft («Falls ihr vor allem Neue gewinnen wollt, könnte …», «Denkbar wäre …»). Nie Befehlsform. Vorsichtig heisst nicht vage: höchstens eine Einschränkung pro Satz, der Vorschlag selbst bleibt greifbar.
+Keine Methodennamen als Rezept (kein «macht einen Golden Circle»); die Wahl der Werkzeuge ist Sache des Gesprächs.
 
 ## Grenzen
 Nenne 3–4 konkrete Dinge, die ECHO von aussen bei DIESER Marke nicht sehen kann und die ein Gespräch klären würde.
 
 ## Sprache
-Schweizer Hochdeutsch: immer «ss», nie «ß». Direkt, konkret, mit Kante, ohne Beraterfloskeln. Du-Form gegenüber dem Unternehmen («ihr», «euer»). Kein Satz, der auf jede Firma passen würde. Nenne in deinen Texten keine Methoden, Modelle oder Autoren (z. B. keine Namen von Archetypen-Systemen, kein «Golden Circle»); schreibe in eigenen Worten. Schönfärberei macht das Ergebnis wertlos; Härte ohne Beleg auch.
+Schweizer Hochdeutsch: immer «ss», nie «ß». Direkt, konkret, mit Kante, ohne Beraterfloskeln. Du-Form gegenüber dem Unternehmen («ihr», «euer»). Befunde dürfen klar sein; Empfehlungen nie in Befehlsform. Kein Satz, der auf jede Firma passen würde. Nenne in deinen Texten keine Methoden, Modelle oder Autoren (z. B. keine Namen von Archetypen-Systemen, kein «Golden Circle»); schreibe in eigenen Worten. Schönfärberei macht das Ergebnis wertlos; Härte ohne Beleg auch.
 
 Liefere das Ergebnis ausschliesslich über das Werkzeug echo_report, und zwar vollständig: Jedes Feld ist Pflicht. Übergib market_logic, atmosphere, hero, archetype und pattern als echte Objekte mit ihren Unterfeldern – nicht als Text und nicht flach.`;
 
@@ -155,12 +160,13 @@ export const REPORT_TOOL = {
         items: {
           type: "object",
           properties: {
-            title: { type: "string" },
+            title: { type: "string", description: "Offene Frage oder Spannung, kein Befehl" },
             dimension: { type: "string", enum: ["E", "C", "H", "O"] },
-            why: { type: "string" },
-            first_step: { type: "string" },
+            why: { type: "string", description: "Was wir sehen: neutrale Beobachtung mit Bezug auf einen Befund" },
+            question: { type: "string", description: "Die Frage an euch: nimmt eine mögliche Absicht ernst, nennt beide Lesarten" },
+            option: { type: "string", description: "Ein möglicher Weg: konkret, im Konjunktiv, an eine Bedingung geknüpft" },
           },
-          required: ["title", "dimension", "why", "first_step"],
+          required: ["title", "dimension", "why", "question", "option"],
         },
       },
       limits: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 4 },

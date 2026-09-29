@@ -100,7 +100,7 @@ export interface ModelReport {
     breaks: string;
   }[];
   pattern: { name: string; text: string };
-  levers: { title: string; dimension: "E" | "C" | "H" | "O"; why: string; first_step: string }[];
+  levers: { title: string; dimension: "E" | "C" | "H" | "O"; why: string; question?: string; option?: string; first_step?: string }[];
   limits: string[];
 }
 
