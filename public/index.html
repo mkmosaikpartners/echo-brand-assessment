@@ -48,9 +48,19 @@
           <input type="text" inputmode="url" name="c2" placeholder="www.mitbewerber-2.ch" aria-label="Mitbewerber 2">
           <input type="text" inputmode="url" name="c3" placeholder="www.mitbewerber-3.ch" aria-label="Mitbewerber 3">
         </details>
+        <div class="pair">
+          <div class="field">
+            <label for="name">Dein Name</label>
+            <input id="name" name="name" type="text" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label for="email">Deine E-Mail</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+          </div>
+        </div>
         <button class="btn" type="submit" id="go">Echo messen</button>
         <div id="err" class="error-box" role="alert" hidden></div>
-        <p class="small">Die Analyse dauert zwei bis drei Minuten. Gespeichert werden die eingegebenen Angaben und das Ergebnis während 90 Tagen, damit du den Link teilen kannst. Die Website wird automatisch gelesen und mit einem Sprachmodell von Anthropic ausgewertet.</p>
+        <p class="small">Die Analyse dauert zwei bis drei Minuten. Gespeichert werden die eingegebenen Angaben und das Ergebnis während 90 Tagen, damit du den Link teilen kannst. Name und E-Mail sieht nur Mosaik &amp; Partners; sie erscheinen nicht im Ergebnis und werden nicht weitergegeben. Die Website wird automatisch gelesen und mit einem Sprachmodell von Anthropic ausgewertet.</p>
       </form>
     </div>
   </section>
@@ -68,7 +78,7 @@
   </section>
 </main>
 
-<footer class="foot"><div class="wrap"><div>ECHO Snapshot · Momentaufnahme, jederzeit wiederholbar · <a href="https://www.mosaik.partners/echo">ECHO-Methodik</a></div><div><a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a></div></div></footer>
+<footer class="foot"><div class="wrap"><div>ECHO Snapshot · Methode: Ruth Töchterle &amp; Martin Künzi</div><div><a href="https://www.mosaik.partners/#termin-mit-martin">Kontakt</a></div></div></footer>
 
 <script>
   const f = document.getElementById("f");
@@ -79,7 +89,11 @@
     err.hidden = true;
     const d = new FormData(f);
     const url = (d.get("url") || "").toString().trim();
+    const name = (d.get("name") || "").toString().trim();
+    const email = (d.get("email") || "").toString().trim();
     if (!url) { err.textContent = "Bitte gib eure Website-Adresse ein."; err.hidden = false; return; }
+    if (!name) { err.textContent = "Bitte gib deinen Namen ein."; err.hidden = false; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = "Bitte gib eine gültige E-Mail-Adresse ein."; err.hidden = false; return; }
     go.disabled = true; go.textContent = "Wird gestartet …";
     try {
       const res = await fetch("/api/analyze", {
@@ -87,6 +101,8 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           url,
+          name,
+          email,
           description: (d.get("description") || "").toString(),
           competitors: ["c1", "c2", "c3"].map((k) => (d.get(k) || "").toString()).filter(Boolean),
         }),

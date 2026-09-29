@@ -114,12 +114,20 @@
     h += "</div></section>";
 
     // Muster
-    h += '<section class="band"><div class="wrap"><div><div class="kicker">Das Muster</div><h2>' + esc(rep.pattern.name) + "</h2></div><div><p>" + esc(rep.pattern.text) + "</p></div></div></section>";
+    var pat = rep.pattern || {};
+    if (pat.name || pat.text) h += '<section class="band"><div class="wrap"><div><div class="kicker">Das Muster</div><h2>' + esc(pat.name) + "</h2></div><div><p>" + esc(pat.text) + "</p></div></div></section>";
 
     // E
     h += '<section class="dim"><div class="wrap">' + dimHead("E");
-    h += '<div class="two"><div class="panel"><div class="kicker">Atmosphäre</div><p><b>Kern:</b> ' + esc(rep.atmosphere.kern) + "</p><p><b>Emotion:</b> " + esc(rep.atmosphere.emotion) + "</p><p><b>Atmosphäre:</b> " + esc(rep.atmosphere.atmosphaere) + "</p></div>";
-    h += '<div class="panel"><div class="kicker">Held der Geschichte</div><div class="traits">' + esc(rep.hero.who) + "</div><p>" + esc(rep.hero.text) + "</p></div></div>";
+    var at = rep.atmosphere || {}, he = rep.hero || {};
+    var panels = [];
+    if (at.kern || at.emotion || at.atmosphaere) {
+      panels.push('<div class="panel"><div class="kicker">Atmosphäre</div>' +
+        [["Kern", at.kern], ["Emotion", at.emotion], ["Atmosphäre", at.atmosphaere]].filter(function (x) { return x[1]; })
+          .map(function (x) { return "<p><b>" + x[0] + ":</b> " + esc(x[1]) + "</p>"; }).join("") + "</div>");
+    }
+    if (he.who) panels.push('<div class="panel"><div class="kicker">Held der Geschichte</div><div class="traits">' + esc(he.who) + "</div><p>" + esc(he.text) + "</p></div>");
+    if (panels.length) h += '<div class="' + (panels.length === 2 ? "two" : "one") + '">' + panels.join("") + "</div>";
     h += rows(r, ["E1", "E2", "E3", "E4"]) + "</div></section>";
 
     // C
@@ -131,7 +139,7 @@
     } else {
       h += '<div class="name">' + esc(a.name) + "</div><p>" + esc(a.primary) + " (" + esc(a.primaryText) + ") + " + esc(a.secondary) + " (" + esc(a.secondaryText) + ")</p>";
     }
-    h += '<div class="traits">' + a.traits.map(esc).join(" · ") + "</div><p>" + esc(rep.archetype.reasoning) + "</p></div>";
+    h += '<div class="traits">' + a.traits.map(esc).join(" · ") + "</div>" + (rep.archetype && rep.archetype.reasoning ? "<p>" + esc(rep.archetype.reasoning) + "</p>" : "") + "</div>";
     h += '<div class="panel"><div class="kicker">Tonalität</div>' + (function () {
       var c2 = (rep.indicators || []).find(function (i) { return i.id === "C2"; });
       return c2 ? segs(c2.level) + '<div class="lvl">' + esc(LEVELS[c2.level]) + "</div><p>" + esc(c2.finding) + "</p>" + evidence(c2.evidence) : "";
@@ -156,7 +164,9 @@
 
     // O
     h += '<section class="dim alt"><div class="wrap">' + dimHead("O");
-    h += '<div class="note"><div class="kicker">Marktlogik</div><div><b>' + esc(POSITION[rep.market_logic.position] || "") + " · " + esc(INVOLVEMENT[rep.market_logic.involvement] || "") + "</b><p>" + esc(rep.market_logic.text) + "</p></div></div>";
+    var ml = rep.market_logic || {};
+    var mlHead = [POSITION[ml.position], INVOLVEMENT[ml.involvement]].filter(Boolean).join(" · ");
+    if (mlHead || ml.text) h += '<div class="note"><div class="kicker">Marktlogik</div><div>' + (mlHead ? "<b>" + esc(mlHead) + "</b>" : "") + "<p>" + esc(ml.text) + "</p></div></div>";
     h += rows(r, ["O1", "O2", "O3"]) + "</div></section>";
 
     // Hebel
@@ -167,9 +177,9 @@
     h += "</div></div></section>";
 
     // Abschluss
-    var contact = job.contactUrl || "mailto:mk@mosaik.partners";
+    var contact = job.contactUrl || "https://www.mosaik.partners/#termin-mit-martin";
     h += '<section class="closer"><div class="wrap"><div><div class="kicker">Was ECHO von aussen nicht sieht</div><ul>' + (rep.limits || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
-    h += '<div><h2>Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><div class="actions"><a class="btn light" href="' + esc(contact) + '">Gespräch vereinbaren</a><button class="btn ghost" type="button" onclick="window.print()">Ergebnis als PDF</button><a class="btn ghost" href="/">Neue Analyse</a></div></div></div></section>';
+    h += '<div><h2>Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><p class="print-only">Gespräch vereinbaren: mosaik.partners/#termin-mit-martin</p><div class="actions"><a class="btn light" href="' + esc(contact) + '" target="_blank" rel="noopener">Gespräch vereinbaren</a><button class="btn ghost" type="button" onclick="window.print()">Ergebnis als PDF</button><a class="btn ghost" href="/">Neue Analyse</a></div></div></div></section>';
 
     // Hinweis zur Methode
     h += '<section><div class="wrap meta"><p>Diese Analyse beruht auf dem <a href="https://www.mosaik.partners/echo">ECHO-Modell</a> von <a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a>. Es schärft Markenidentität und Markenerlebnis so, dass eine Marke auch im Zeitalter der KI unverwechselbar bleibt.</p></div></section>';

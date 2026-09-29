@@ -60,7 +60,7 @@ Nenne 3–4 konkrete Dinge, die ECHO von aussen bei DIESER Marke nicht sehen kan
 ## Sprache
 Schweizer Hochdeutsch: immer «ss», nie «ß». Direkt, konkret, mit Kante, ohne Beraterfloskeln. Du-Form gegenüber dem Unternehmen («ihr», «euer»). Kein Satz, der auf jede Firma passen würde. Nenne in deinen Texten keine Methoden, Modelle oder Autoren (z. B. keine Namen von Archetypen-Systemen, kein «Golden Circle»); schreibe in eigenen Worten. Schönfärberei macht das Ergebnis wertlos; Härte ohne Beleg auch.
 
-Liefere das Ergebnis ausschliesslich über das Werkzeug echo_report.`;
+Liefere das Ergebnis ausschliesslich über das Werkzeug echo_report, und zwar vollständig: Jedes Feld ist Pflicht. Übergib market_logic, atmosphere, hero, archetype und pattern als echte Objekte mit ihren Unterfeldern – nicht als Text und nicht flach.`;
 
 const evidence = {
   type: "object",

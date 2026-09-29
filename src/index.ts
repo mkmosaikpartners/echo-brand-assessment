@@ -44,7 +44,7 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
       const model = this.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
       const reportJson = await step.do(
         "einstufen",
-        { retries: { limit: 2, delay: "20 seconds", backoff: "exponential" }, timeout: "6 minutes" },
+        { retries: { limit: 1, delay: "20 seconds" }, timeout: "12 minutes" },
         async () => {
           try {
             return JSON.stringify(await callModel(this.env.ANTHROPIC_API_KEY, model, crawl, p.description));
@@ -98,12 +98,16 @@ async function rateLimited(env: Env, ip: string): Promise<boolean> {
 }
 
 async function handleAnalyze(req: Request, env: Env): Promise<Response> {
-  let body: { url?: string; description?: string; competitors?: string[] };
+  let body: { url?: string; description?: string; competitors?: string[]; name?: string; email?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: "Ungültige Anfrage." }, 400);
   }
+  const name = (body.name || "").trim().slice(0, 120);
+  const email = (body.email || "").trim().slice(0, 200);
+  if (!name) return json({ error: "Bitte gib deinen Namen ein." }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ error: "Bitte gib eine gültige E-Mail-Adresse ein." }, 400);
   const url = normalizeUrl(body.url || "");
   if (!url) return json({ error: "Bitte gib eine gültige Website-Adresse ein, z. B. www.beispiel.ch." }, 400);
   const description = (body.description || "").trim().slice(0, 400) || undefined;
@@ -123,6 +127,8 @@ async function handleAnalyze(req: Request, env: Env): Promise<Response> {
   await env.RESULTS.put(`r:${id}`, JSON.stringify({ status: "queued", step: "warten", createdAt, url } satisfies JobStatus), {
     expirationTtl: TTL_SECONDS,
   });
+  // Kontakt getrennt vom Ergebnis speichern: nur für Mosaik & Partners sichtbar
+  await env.RESULTS.put(`c:${id}`, JSON.stringify({ name, email, url, description, createdAt }), { expirationTtl: TTL_SECONDS });
   await env.ECHO_WORKFLOW.create({ id, params: { id, url, description, competitors } });
   return json({ id });
 }
@@ -133,7 +139,7 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
   const job = JSON.parse(raw) as JobStatus;
   if (job.status === "review" && !admin) return json({ status: "review", createdAt: job.createdAt, url: job.url });
   // Testphase: technische Fehlerdetails für alle sichtbar. Vor dem Launch wieder auf Admin beschränken.
-  return json({ ...job, contactUrl: env.CONTACT_URL || "mailto:mk@mosaik.partners?subject=ECHO%20Snapshot" });
+  return json({ ...job, contactUrl: env.CONTACT_URL || "https://www.mosaik.partners/#termin-mit-martin" });
 }
 
 function isAdmin(req: Request, env: Env): boolean {
@@ -147,7 +153,10 @@ async function handleAdminList(env: Env): Promise<Response> {
   const items = await Promise.all(
     list.keys.map(async (k) => {
       const j = JSON.parse((await env.RESULTS.get(k.name)) || "{}") as JobStatus;
+      const c = JSON.parse((await env.RESULTS.get(`c:${k.name.slice(2)}`)) || "{}") as { name?: string; email?: string };
       return {
+        name: c.name,
+        email: c.email,
         id: k.name.slice(2),
         status: j.status,
         url: j.url,

@@ -1,6 +1,7 @@
 import { REPORT_TOOL, SYSTEM_PROMPT } from "./rubric";
 import type { CrawlResult, ModelReport } from "./types";
 import { EchoError } from "./crawl";
+import { missingParts, normalizeReport } from "./normalize";
 
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 
@@ -67,33 +68,47 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
         messages: [{ role: "user", content }],
       }),
     });
-  let res = await send();
-  for (let i = 0; i < 2 && res.status === 400; i++) {
-    const peek = await res.clone().text();
-    if (opts.forceTool && /tool_choice/i.test(peek)) opts.forceTool = false;
-    else if (opts.temperature && /temperature/i.test(peek)) opts.temperature = false;
-    else break;
-    res = await send();
+  // Bis zu zwei Anläufe: Ist die Antwort unvollständig, wird einmal neu gefragt.
+  let best: ModelReport | null = null;
+  let bestMissing: string[] = [];
+  for (let round = 0; round < 2; round++) {
+    const report = await askOnce();
+    const miss = missingParts(report);
+    if (!miss.length) return report;
+    if (!best || miss.length < bestMissing.length) { best = report; bestMissing = miss; }
   }
-  if (!res.ok) {
-    const body = await res.text();
-    // 4xx ausser 429 sind Konfigurationsfehler: nicht wiederholen
-    const msg = `Analyse-Dienst antwortete mit ${res.status}: ${body.slice(0, 300)}`;
-    if (res.status >= 400 && res.status < 500 && res.status !== 429) throw new EchoError(msg);
-    throw new Error(msg);
-  }
-  const data = (await res.json()) as { content: { type: string; name?: string; input?: unknown; text?: string }[]; stop_reason?: string };
-  const tool = data.content.find((c) => c.type === "tool_use" && c.name === REPORT_TOOL.name);
-  if (tool && tool.input) return tool.input as ModelReport;
-  // Rückfall: JSON im Text
-  const text = data.content.filter((c) => c.type === "text").map((c) => c.text || "").join("\n");
-  const m = text.match(/\{[\s\S]*\}/);
-  if (m) {
-    try {
-      return JSON.parse(m[0]) as ModelReport;
-    } catch {
-      /* weiter unten */
+  if (best && bestMissing.length <= 2 && !bestMissing.includes("Charakter")) return best; // kleine Lücken: Seite blendet leere Teile aus
+  throw new Error(`Analyse unvollständig (${bestMissing.join(", ")}).`);
+
+  async function askOnce(): Promise<ModelReport> {
+    let res = await send();
+    for (let i = 0; i < 2 && res.status === 400; i++) {
+      const peek = await res.clone().text();
+      if (opts.forceTool && /tool_choice/i.test(peek)) opts.forceTool = false;
+      else if (opts.temperature && /temperature/i.test(peek)) opts.temperature = false;
+      else break;
+      res = await send();
     }
+    if (!res.ok) {
+      const body = await res.text();
+      // 4xx ausser 429 sind Konfigurationsfehler: nicht wiederholen
+      const msg = `Analyse-Dienst antwortete mit ${res.status}: ${body.slice(0, 300)}`;
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) throw new EchoError(msg);
+      throw new Error(msg);
+    }
+    const data = (await res.json()) as { content: { type: string; name?: string; input?: unknown; text?: string }[]; stop_reason?: string };
+    const tool = data.content.find((c) => c.type === "tool_use" && c.name === REPORT_TOOL.name);
+    if (tool && tool.input) return normalizeReport(tool.input);
+    // Rückfall: JSON im Text
+    const text = data.content.filter((c) => c.type === "text").map((c) => c.text || "").join("\n");
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      try {
+        return normalizeReport(JSON.parse(m[0]));
+      } catch {
+        /* weiter unten */
+      }
+    }
+    throw new Error(`Keine Analyse erhalten (stop_reason: ${data.stop_reason}).`);
   }
-  throw new Error(`Keine Analyse erhalten (stop_reason: ${data.stop_reason}).`);
 }

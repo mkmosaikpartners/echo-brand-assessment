@@ -114,3 +114,29 @@ describe("Skripte für den Browser", () => {
     for (const s of [EXTRACT_SCRIPT, COOKIE_SCRIPT]) expect(() => new Function("return " + s)).not.toThrow();
   });
 });
+
+describe("Antwort des Modells glätten", () => {
+  it("wandelt Objekte, die als Text geliefert werden, zurück und erkennt Lücken", async () => {
+    const { normalizeReport, missingParts } = await import("../src/normalize");
+    const r = normalizeReport({
+      company_name: "T&O",
+      retell_sentence: "Satz",
+      market_logic: '{"position":"nische","involvement":"bedeutung","text":"Lage"}',
+      atmosphere: '{"kern":"K","emotion":"E","atmosphaere":"A"}',
+      hero: '{"who":"Das Haus","carries":true,"text":"t"}',
+      archetype: '{"primary":"trust","secondary":"Passion","traits_in_context":["a","b","c"],"reasoning":"r"}',
+      pattern_name: "Vertraute auf Zeit",
+      pattern_text: "Text",
+      indicators: JSON.stringify(Array.from({ length: 10 }, (_, i) => ({ id: "E1", level: 2, finding: "f" + i, evidence: [] }))),
+      levers: [{}, {}, {}],
+      limits: "[]",
+    });
+    expect(r.atmosphere.kern).toBe("K");
+    expect(r.hero.who).toBe("Das Haus");
+    expect(r.archetype.primary).toBe("Trust");
+    expect(r.pattern.name).toBe("Vertraute auf Zeit");
+    expect(r.indicators).toHaveLength(10);
+    expect(missingParts(r)).toEqual([]);
+    expect(missingParts(normalizeReport({}))).toContain("Charakter");
+  });
+});

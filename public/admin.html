@@ -37,7 +37,8 @@
     fetch("/api/admin/list", { headers: { "x-admin-key": key } }).then(function (r) { return r.json(); }).then(function (j) {
       if (j.error) { out.innerHTML = '<div class="error-box">' + esc(j.error) + "</div>"; return; }
       out.innerHTML = j.items.map(function (i) {
-        return '<div class="item"><div><b>' + esc(i.company || i.url) + "</b><div class=\"muted\">" + esc(i.url) + (i.pattern ? " · " + esc(i.pattern) : "") + "</div></div>" +
+        return '<div class="item"><div><b>' + esc(i.company || i.url) + "</b><div class=\"muted\">" + esc(i.url) + (i.pattern ? " · " + esc(i.pattern) : "") + "</div>" +
+          (i.name || i.email ? '<div style="margin-top:4px">' + esc(i.name || "") + (i.email ? ' · <a href="mailto:' + esc(i.email) + '">' + esc(i.email) + "</a>" : "") + "</div>" : "") + "</div>" +
           '<div class="st ' + esc(i.status) + '">' + esc(LABEL[i.status] || i.status) + "</div>" +
           '<div class="muted">' + esc(new Date(i.createdAt).toLocaleString("de-CH")) + "</div>" +
           '<div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" target="_blank" href="/r/' + esc(i.id) + "?key=" + encodeURIComponent(key) + '">Ansehen</a>' +
