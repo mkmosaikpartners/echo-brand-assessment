@@ -30,3 +30,7 @@ npx wrangler deploy
 ```
 
 Die Rubrik und die Archetypen-Matrix entsprechen den Dokumenten im Projekt «ECHO – Markenanalyse». Grundlage des Charakters: The 49 Personality Archetypes von Sally Hogshead (© Fascinate, Inc.).
+
+## Veröffentlichung
+
+Cloudflare Workers Builds veröffentlicht jede Änderung auf dem Zweig `echo-2` automatisch (Worker `echo-snapshot`).
