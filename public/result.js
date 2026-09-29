@@ -179,7 +179,7 @@
     // Abschluss
     var contact = job.contactUrl || "https://www.mosaik.partners/#termin-mit-martin";
     h += '<section class="closer"><div class="wrap"><div><div class="kicker">Was ECHO von aussen nicht sieht</div><ul>' + (rep.limits || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
-    h += '<div><h2>Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><p class="print-only">Gespräch vereinbaren: mosaik.partners/#termin-mit-martin</p><div class="actions"><a class="btn light" href="' + esc(contact) + '" target="_blank" rel="noopener">Gespräch vereinbaren</a><button class="btn ghost" type="button" onclick="window.print()">Ergebnis als PDF</button><a class="btn ghost" href="/">Neue Analyse</a></div></div></div></section>';
+    h += '<div><h2>Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><p class="print-only">Gespräch vereinbaren: mosaik.partners/#termin-mit-martin</p><div class="actions"><a class="btn light" href="' + esc(contact) + '" target="_blank" rel="noopener">Gespräch vereinbaren</a><button class="btn ghost" type="button" id="pdfBtn">Ergebnis als PDF</button><a class="btn ghost" href="/">Neue Analyse</a></div></div></div></section>';
 
     // Hinweis zur Methode
     h += '<section><div class="wrap meta"><p>Diese Analyse beruht auf dem <a href="https://www.mosaik.partners/echo">ECHO-Modell</a> von <a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a>. Es schärft Markenidentität und Markenerlebnis so, dass eine Marke auch im Zeitalter der KI unverwechselbar bleibt.</p></div></section>';
@@ -214,6 +214,45 @@
     });
   }
 
+  function afterRender(job) {
+    // Präsentation für das PDF (unsichtbar auf dem Bildschirm)
+    var deck = document.getElementById("deck");
+    if (!deck) { deck = document.createElement("div"); deck.id = "deck"; document.body.appendChild(deck); }
+    if (window.EchoDeck) {
+      deck.innerHTML = window.EchoDeck.build(job);
+      document.documentElement.classList.add("deck-print");
+      var done = function () { window.EchoDeck.fit(deck); document.body.setAttribute("data-ready", "1"); };
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(done); else done();
+      window.addEventListener("beforeprint", function () { window.EchoDeck.fit(deck); });
+    }
+    var btn = document.getElementById("pdfBtn");
+    if (btn) btn.addEventListener("click", function () {
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = "PDF wird erstellt …";
+      fetch("/api/pdf/" + id, { headers: adminKey ? { "x-admin-key": adminKey } : {} })
+        .then(function (res) {
+          if (!res.ok) throw new Error("pdf");
+          var cd = res.headers.get("content-disposition") || "";
+          var m = cd.match(/filename="([^"]+)"/);
+          return res.blob().then(function (b) { return { b: b, name: m ? m[1] : "ECHO-Snapshot.pdf" }; });
+        })
+        .then(function (x) {
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(x.b);
+          a.download = x.name;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+        })
+        .catch(function () {
+          // Rückfall: Drucken im Browser (zeigt dieselbe Präsentation)
+          window.print();
+        })
+        .then(function () { btn.disabled = false; btn.textContent = label; });
+    });
+  }
+
   var tries = 0;
   function poll() {
     if (!id) { message("Kein Ergebnis", "Dieser Link ist unvollständig."); return; }
@@ -233,6 +272,7 @@
           // Interne Vorschau für Mosaik & Partners
           render(j);
           previewBanner();
+          afterRender(j);
           return;
         }
         if (j.status === "review") {
@@ -245,6 +285,7 @@
           return;
         }
         render(j);
+        afterRender(j);
       })
       .catch(function () { setTimeout(poll, 6000); });
   }

@@ -1,3 +1,4 @@
+import puppeteer from "@cloudflare/puppeteer";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 import { crawlSite, EchoError } from "./crawl";
@@ -200,6 +201,54 @@ async function handleHealth(env: Env): Promise<Response> {
   });
 }
 
+
+/* ================= PDF (Präsentation) ================= */
+
+async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Promise<Response> {
+  const raw = await env.RESULTS.get(`r:${id}`);
+  if (!raw) return json({ error: "Nicht gefunden." }, 404);
+  const job = JSON.parse(raw) as JobStatus;
+  if (job.status !== "done" && !(job.status === "review" && admin)) return json({ error: "Noch nicht verfügbar." }, 403);
+  const company = job.status === "done" || job.status === "review" ? job.result.report.company_name || new URL(job.url).hostname : "Ergebnis";
+  const fileName = `ECHO-Snapshot-${company.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "")}.pdf`;
+  const headers = {
+    "content-type": "application/pdf",
+    "content-disposition": `attachment; filename="${fileName}"`,
+    "cache-control": "no-store",
+  };
+
+  // Freigegebene Ergebnisse nur einmal erzeugen
+  if (job.status === "done") {
+    const cached = await env.RESULTS.get(`p:${id}`, "arrayBuffer");
+    if (cached) return new Response(cached, { headers });
+  }
+  const ip = req.headers.get("cf-connecting-ip") || "unbekannt";
+  if (!admin && (await rateLimitedKey(env, `rlp:${ip}`, 20))) return json({ error: "Zu viele PDF-Anfragen. Bitte später erneut." }, 429);
+
+  const origin = new URL(req.url).origin;
+  const target = `${origin}/r/${id}` + (job.status === "review" ? `?key=${encodeURIComponent((env.ADMIN_KEY || "").trim())}` : "");
+  const browser = await puppeteer.launch(env.BROWSER);
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
+    await page.goto(target, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.waitForSelector('body[data-ready="1"]', { timeout: 30000 });
+    const pdf = await page.pdf({ width: "297mm", height: "167mm", printBackground: true, preferCSSPageSize: true });
+    if (job.status === "done") await env.RESULTS.put(`p:${id}`, pdf, { expirationTtl: TTL_SECONDS });
+    return new Response(pdf, { headers });
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function rateLimitedKey(env: Env, prefix: string, limit: number): Promise<boolean> {
+  const key = `${prefix}:${new Date().toISOString().slice(0, 13)}`;
+  const n = Number((await env.RESULTS.get(key)) || "0");
+  if (n >= limit) return true;
+  await env.RESULTS.put(key, String(n + 1), { expirationTtl: 3700 });
+  return false;
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -210,6 +259,9 @@ export default {
 
     let m = path.match(/^\/api\/result\/([a-z0-9]{8,32})$/);
     if (m && req.method === "GET") return handleResult(m[1], env, isAdmin(req, env));
+
+    m = path.match(/^\/api\/pdf\/([a-z0-9]{8,32})$/);
+    if (m && req.method === "GET") return handlePdf(m[1], req, env, isAdmin(req, env));
 
     if (path === "/api/admin/list") return isAdmin(req, env) ? handleAdminList(env) : json({ error: "Kein Zugriff." }, 403);
     m = path.match(/^\/api\/admin\/approve\/([a-z0-9]{8,32})$/);
