@@ -20,28 +20,37 @@
 <main class="wrap" style="padding-top:40px;padding-bottom:60px">
   <h1 style="font-size:40px">Ergebnisse</h1>
   <form id="k" style="display:flex;gap:12px;margin-top:18px;max-width:560px">
-    <input id="key" type="text" placeholder="Admin-Schlüssel" aria-label="Admin-Schlüssel" autocomplete="off">
-    <button class="btn" type="submit">Anzeigen</button>
+    <input type="text" name="username" value="echo-admin" autocomplete="username" hidden>
+    <input id="key" type="password" placeholder="Passwort" aria-label="Passwort" autocomplete="current-password">
+    <button class="btn" type="submit">Anmelden</button>
+    <button class="btn ghost" type="button" id="logout" hidden>Abmelden</button>
   </form>
   <div id="out" class="list"></div>
 </main>
 <script>
   var keyInput = document.getElementById("key");
   var out = document.getElementById("out");
-  try { keyInput.value = sessionStorage.getItem("echoKey") || ""; } catch (e) {}
+  // Passwort nur im Browser dieses Geräts merken, nie in Links oder Adressen
+  var KEY = "echoAdminKey";
+  var logoutBtn = document.getElementById("logout");
+  function stored() { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } }
+  function remember(k) { try { if (k) localStorage.setItem(KEY, k); else localStorage.removeItem(KEY); sessionStorage.removeItem("echoKey"); } catch (e) {} }
+  keyInput.value = stored();
+  logoutBtn.addEventListener("click", function () { remember(""); keyInput.value = ""; out.innerHTML = ""; logoutBtn.hidden = true; });
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var LABEL = { review: "wartet", done: "sichtbar", error: "Fehler", running: "läuft", queued: "wartet auf Start" };
   function load() {
     var key = keyInput.value.trim();
-    try { sessionStorage.setItem("echoKey", key); } catch (e) {}
+    remember(key);
     fetch("/api/admin/list", { headers: { "x-admin-key": key } }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j.error) { out.innerHTML = '<div class="error-box">' + esc(j.error) + "</div>"; return; }
+      if (j.error) { remember(""); logoutBtn.hidden = true; out.innerHTML = '<div class="error-box">' + esc(j.error) + "</div>"; return; }
+      logoutBtn.hidden = false;
       out.innerHTML = j.items.map(function (i) {
         return '<div class="item"><div><b>' + esc(i.company || i.url) + "</b><div class=\"muted\">" + esc(i.url) + (i.pattern ? " · " + esc(i.pattern) : "") + "</div>" +
           (i.name || i.email ? '<div style="margin-top:4px">' + esc(i.name || "") + (i.email ? ' · <a href="mailto:' + esc(i.email) + '">' + esc(i.email) + "</a>" : "") + "</div>" : "") + "</div>" +
           '<div class="st ' + esc(i.status) + '">' + esc(LABEL[i.status] || i.status) + "</div>" +
           '<div class="muted">' + esc(new Date(i.createdAt).toLocaleString("de-CH")) + "</div>" +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" target="_blank" href="/r/' + esc(i.id) + "?key=" + encodeURIComponent(key) + '">Ansehen</a>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" target="_blank" href="/r/' + esc(i.id) + '">Ansehen</a>' +
           (i.status === "review" ? '<button class="btn" data-id="' + esc(i.id) + '">Freigeben</button>' : "") + "</div></div>";
       }).join("") || '<p class="muted">Noch keine Ergebnisse.</p>';
     });

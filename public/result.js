@@ -2,17 +2,17 @@
   "use strict";
   var app = document.getElementById("app");
   var id = (location.pathname.match(/\/r\/([a-z0-9]+)/) || [])[1];
-  // Admin-Schlüssel aus dem Link übernehmen und sofort aus der Adresszeile entfernen,
-  // damit er nicht versehentlich weitergegeben wird.
-  var adminKey = new URLSearchParams(location.search).get("key") || "";
+  // Admin-Passwort: kommt aus dem Gerätespeicher (gesetzt in /admin), nie aus Links.
+  // Ein alter Link mit ?key= wird noch verstanden, aber sofort aus Adresse und Verlauf entfernt.
+  var adminKey = "";
   try {
-    if (adminKey) {
-      sessionStorage.setItem("echoAdminKey", adminKey);
+    var fromUrl = new URLSearchParams(location.search).get("key");
+    if (fromUrl) {
+      localStorage.setItem("echoAdminKey", fromUrl);
       history.replaceState(null, "", location.pathname);
-    } else {
-      adminKey = sessionStorage.getItem("echoAdminKey") || "";
     }
-  } catch (e) { /* ohne Speicher geht es auch */ }
+    adminKey = localStorage.getItem("echoAdminKey") || "";
+  } catch (e) { /* ohne Speicher keine Admin-Ansicht */ }
   var shareUrl = location.origin + location.pathname;
 
   var LEVELS = ["fehlt", "behauptet", "erkennbar", "belegt & prägnant"];

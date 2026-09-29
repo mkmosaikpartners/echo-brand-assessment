@@ -165,7 +165,8 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
 }
 
 function isAdmin(req: Request, env: Env): boolean {
-  const key = (new URL(req.url).searchParams.get("key") || req.headers.get("x-admin-key") || "").trim();
+  // Nur über den Header, nie über die Adresse (Adressen landen in Verlauf und Protokollen)
+  const key = (req.headers.get("x-admin-key") || "").trim();
   const expected = (env.ADMIN_KEY || "").trim();
   return expected.length > 0 && key === expected;
 }
@@ -270,11 +271,15 @@ async function handlePdf(id: string, req: Request, env: Env, admin: boolean): Pr
   if (!admin && (await rateLimitedKey(env, `rlp:${ip}`, 20))) return json({ error: "Zu viele PDF-Anfragen. Bitte später erneut." }, 429);
 
   const origin = new URL(req.url).origin;
-  const target = `${origin}/r/${id}` + (job.status === "review" ? `?key=${encodeURIComponent((env.ADMIN_KEY || "").trim())}` : "");
+  const target = `${origin}/r/${id}`;
   const browser = await withTimeout(puppeteer.launch(env.BROWSER), 30000, "Browser starten");
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
+    if (job.status === "review") {
+      // Vorschau: Passwort nur im Speicher des Hilfsbrowsers, nicht in der Adresse (sonst stünde es in den Protokollen)
+      await page.evaluateOnNewDocument((k: string) => { try { localStorage.setItem("echoAdminKey", k); } catch { /* egal */ } }, (env.ADMIN_KEY || "").trim());
+    }
     await page.goto(target, { waitUntil: "networkidle0", timeout: 30000 });
     await page.waitForSelector('body[data-ready="1"]', { timeout: 30000 });
     const pdf = await withTimeout(page.pdf({ width: "297mm", height: "167mm", printBackground: true, preferCSSPageSize: true }), 45000, "PDF erzeugen");
