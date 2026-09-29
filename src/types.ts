@@ -11,7 +11,10 @@ export interface Env {
   REVIEW_MODE?: string; // "on" = Ergebnisse erst nach Freigabe sichtbar
   RATE_LIMIT_PER_HOUR?: string;
   CONTACT_URL?: string;
-  RESEND_API_KEY?: string; // E-Mails (Resend)
+  SMTP_USER?: string; // Google-Workspace-Postfach für den Versand
+  SMTP_PASS?: string; // App-Passwort (Secret)
+  SMTP_HOST?: string;
+  RESEND_API_KEY?: string; // Alternative: E-Mails über Resend
   MAIL_FROM?: string;
   MAIL_REPLY_TO?: string;
   NOTIFY_EMAIL?: string; // erhält Meldung, wenn ein Ergebnis auf Freigabe wartet

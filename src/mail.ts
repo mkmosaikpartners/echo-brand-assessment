@@ -1,6 +1,10 @@
+import { WorkerMailer } from "worker-mailer";
 import type { Env, JobStatus } from "./types";
 
-/** E-Mails über Resend. Ohne RESEND_API_KEY wird still nichts verschickt. */
+/**
+ * E-Mails über das Google-Workspace-Postfach (SMTP mit App-Passwort) oder alternativ über Resend.
+ * Ohne Zugangsdaten wird still nichts verschickt.
+ */
 
 interface Contact {
   name?: string;
@@ -22,6 +26,27 @@ function baseUrl(env: Env): string {
 }
 
 async function send(env: Env, to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const smtpPass = (env.SMTP_PASS || "").replace(/\s+/g, "");
+  if (smtpPass) {
+    const user = (env.SMTP_USER || "mk@mosaik.partners").trim();
+    try {
+      await WorkerMailer.send(
+        { host: env.SMTP_HOST || "smtp.gmail.com", port: 465, secure: true, authType: "plain", credentials: { username: user, password: smtpPass } },
+        {
+          from: { name: "Mosaik & Partners", email: user },
+          to: { email: to },
+          reply: env.MAIL_REPLY_TO || user,
+          subject,
+          html,
+          text,
+        },
+      );
+      return true;
+    } catch (e) {
+      console.log("SMTP fehlgeschlagen", e instanceof Error ? e.message : String(e));
+      return false;
+    }
+  }
   const key = (env.RESEND_API_KEY || "").trim();
   if (!key) return false;
   const res = await fetch("https://api.resend.com/emails", {
