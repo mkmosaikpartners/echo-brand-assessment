@@ -47,7 +47,9 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
   }
   content.push({ type: "text", text: buildUserText(crawl, description) });
 
-  const send = (withTemperature: boolean) =>
+  // Nicht jedes Modell erlaubt alle Optionen. Bei einer Ablehnung wird die betroffene Option weggelassen.
+  const opts = { temperature: true, forceTool: true };
+  const send = () =>
     fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -57,19 +59,21 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
       },
       body: JSON.stringify({
         model,
-        max_tokens: 12000,
-        ...(withTemperature ? { temperature: 0 } : {}),
+        max_tokens: 24000,
+        ...(opts.temperature ? { temperature: 0 } : {}),
         system: SYSTEM_PROMPT,
         tools: [REPORT_TOOL],
-        tool_choice: { type: "tool", name: REPORT_TOOL.name },
+        tool_choice: opts.forceTool ? { type: "tool", name: REPORT_TOOL.name } : { type: "auto" },
         messages: [{ role: "user", content }],
       }),
     });
-  let res = await send(true);
-  if (res.status === 400) {
-    // Manche Modelle lassen «temperature» nicht zu – dann ohne wiederholen
+  let res = await send();
+  for (let i = 0; i < 2 && res.status === 400; i++) {
     const peek = await res.clone().text();
-    if (/temperature/i.test(peek)) res = await send(false);
+    if (opts.forceTool && /tool_choice/i.test(peek)) opts.forceTool = false;
+    else if (opts.temperature && /temperature/i.test(peek)) opts.temperature = false;
+    else break;
+    res = await send();
   }
   if (!res.ok) {
     const body = await res.text();
@@ -78,8 +82,18 @@ export async function callModel(apiKey: string, model: string, crawl: CrawlResul
     if (res.status >= 400 && res.status < 500 && res.status !== 429) throw new EchoError(msg);
     throw new Error(msg);
   }
-  const data = (await res.json()) as { content: { type: string; name?: string; input?: unknown }[]; stop_reason?: string };
+  const data = (await res.json()) as { content: { type: string; name?: string; input?: unknown; text?: string }[]; stop_reason?: string };
   const tool = data.content.find((c) => c.type === "tool_use" && c.name === REPORT_TOOL.name);
-  if (!tool || !tool.input) throw new Error(`Keine Analyse erhalten (stop_reason: ${data.stop_reason}).`);
-  return tool.input as ModelReport;
+  if (tool && tool.input) return tool.input as ModelReport;
+  // Rückfall: JSON im Text
+  const text = data.content.filter((c) => c.type === "text").map((c) => c.text || "").join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (m) {
+    try {
+      return JSON.parse(m[0]) as ModelReport;
+    } catch {
+      /* weiter unten */
+    }
+  }
+  throw new Error(`Keine Analyse erhalten (stop_reason: ${data.stop_reason}).`);
 }
