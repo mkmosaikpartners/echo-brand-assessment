@@ -132,7 +132,7 @@ async function handleResult(id: string, env: Env, admin: boolean): Promise<Respo
   if (!raw) return json({ error: "Dieses Ergebnis gibt es nicht oder nicht mehr." }, 404);
   const job = JSON.parse(raw) as JobStatus;
   if (job.status === "review" && !admin) return json({ status: "review", createdAt: job.createdAt, url: job.url });
-  if (job.status === "error" && !admin) return json({ status: "error", createdAt: job.createdAt, url: job.url, error: job.error });
+  // Testphase: technische Fehlerdetails für alle sichtbar. Vor dem Launch wieder auf Admin beschränken.
   return json({ ...job, contactUrl: env.CONTACT_URL || "mailto:mk@mosaik.partners?subject=ECHO%20Snapshot" });
 }
 
@@ -170,12 +170,34 @@ async function handleApprove(id: string, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
+async function handleHealth(env: Env): Promise<Response> {
+  // Testphase: zeigt nur, OB Schlüssel vorhanden sind – nie deren Inhalt.
+  let lastError: unknown = null;
+  try {
+    const list = await env.RESULTS.list({ prefix: "r:", limit: 50 });
+    const jobs = await Promise.all(list.keys.map(async (k) => JSON.parse((await env.RESULTS.get(k.name)) || "{}") as JobStatus));
+    const errs = jobs.filter((j) => j.status === "error").sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    if (errs[0] && errs[0].status === "error") lastError = { createdAt: errs[0].createdAt, url: errs[0].url, detail: errs[0].detail };
+  } catch (e) {
+    lastError = String(e);
+  }
+  return json({
+    anthropicKey: !!(env.ANTHROPIC_API_KEY || "").trim(),
+    adminKey: !!(env.ADMIN_KEY || "").trim(),
+    model: env.ANTHROPIC_MODEL || null,
+    reviewMode: env.REVIEW_MODE || null,
+    bindings: { browser: !!env.BROWSER, kv: !!env.RESULTS, workflow: !!env.ECHO_WORKFLOW },
+    lastError,
+  });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
 
     if (path === "/api/analyze" && req.method === "POST") return handleAnalyze(req, env);
+    if (path === "/api/health") return handleHealth(env);
 
     let m = path.match(/^\/api\/result\/([a-z0-9]{8,32})$/);
     if (m && req.method === "GET") return handleResult(m[1], env, isAdmin(req, env));
