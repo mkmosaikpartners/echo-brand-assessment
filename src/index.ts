@@ -33,7 +33,7 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
         { retries: { limit: 1, delay: "10 seconds" }, timeout: "4 minutes" },
         async () => {
           try {
-            return JSON.stringify(await withTimeout(crawlSite(this.env.BROWSER, p.url, p.competitors), 210000, "Website lesen"));
+            return JSON.stringify(await withTimeout(crawlSite(this.env.BROWSER, p.url, p.competitors), 225000, "Website lesen"));
           } catch (e) {
             if (e instanceof EchoError) throw new NonRetryableError(e.message);
             throw e;
@@ -88,7 +88,8 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
   }
 }
 
-function friendlyError(msg: string): string {
+function friendlyError(raw: string): string {
+  const msg = raw.replace(/^(NonRetryableError|Error):\s*/, "");
   if (/API-Schlüssel|401|authentication/i.test(msg)) return "Der Analyse-Dienst ist im Moment nicht erreichbar. Bitte versuche es später erneut.";
   if (/timed? ?out|timeout|Zeitüberschreitung/i.test(msg)) return "Die Website hat zu lange gebraucht, um zu antworten. Bitte versuche es später erneut.";
   if (/^(Die |Auf der |Ausser )/.test(msg)) return msg;

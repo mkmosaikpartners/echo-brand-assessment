@@ -22,13 +22,29 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
   const notes: string[] = [];
   let browser: Browser | null = null;
   try {
+    const started = Date.now();
+    const timeLeft = (budgetMs: number) => Date.now() - started < budgetMs;
     browser = await withTimeout(puppeteer.launch(browserBinding, { keep_alive: 600000 }), 60000, "Browser starten");
-    const page = await withTimeout(browser.newPage(), 30000, "Seite öffnen");
-    await withTimeout(page.setViewport({ width: 1440, height: 900 }), 15000, "Ansicht setzen");
-    await withTimeout(page.setExtraHTTPHeaders({ "Accept-Language": "de-CH,de;q=0.9,en;q=0.4" }), 15000, "Sprache setzen");
+    const b = browser;
+    const openPage = async () => {
+      const pg = await withTimeout(b.newPage(), 30000, "Seite öffnen");
+      await withTimeout(pg.setViewport({ width: 1440, height: 900 }), 15000, "Ansicht setzen");
+      await withTimeout(pg.setExtraHTTPHeaders({ "Accept-Language": "de-CH,de;q=0.9,en;q=0.4" }), 15000, "Sprache setzen");
+      return pg;
+    };
+    let page = await openPage();
+    // Hängt eine Seite, mit einem frischen Tab nochmals versuchen
+    const visitRobust = async (target: string): Promise<Extracted | null> => {
+      const first = await visit(page, target);
+      if (first && first.text.length >= MIN_READABLE) return first;
+      if (!timeLeft(170000)) return first;
+      await page.close().catch(() => {});
+      page = await openPage();
+      return (await visit(page, target)) || first;
+    };
 
     // Startseite
-    let home = await visit(page, url);
+    let home = await visitRobust(url);
     if (!home) throw new EchoError(`Die Startseite liess sich nicht laden. Ist die Adresse korrekt und öffentlich erreichbar? (${lastVisitProblem.slice(0, 200)})`);
     let homeUrl = page.url();
 
@@ -53,9 +69,13 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
 
     const pages: PageSnapshot[] = [snapshot(homeUrl, "start", home, MAX_TEXT_PAGE)];
 
-    // Unterseiten
+    // Unterseiten (mit Zeitbudget, damit der Schritt nie ausläuft)
     for (const target of selectPages(home.links, homeUrl, 5)) {
-      const sub = await visit(page, target.url);
+      if (!timeLeft(150000)) {
+        notes.push("Aus Zeitgründen wurden nicht alle Unterseiten gelesen.");
+        break;
+      }
+      const sub = await visitRobust(target.url);
       if (sub && sub.text.length >= MIN_READABLE) {
         pages.push(snapshot(page.url(), target.role, sub, MAX_TEXT_PAGE));
       } else {
@@ -64,11 +84,12 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
     }
 
     const readable = pages.filter((p) => p.text.length >= MIN_READABLE);
-    if (readable.length < 2) {
-      throw new EchoError(
-        readable.length === 0
-          ? "Auf der Website liess sich kein Text lesen. Möglicherweise blockiert sie automatische Zugriffe."
-          : "Ausser der Startseite liess sich keine weitere Seite lesen. Für eine faire Beurteilung braucht ECHO mindestens zwei Seiten.",
+    if (readable.length === 0) {
+      throw new EchoError("Auf der Website liess sich kein Text lesen. Möglicherweise blockiert sie automatische Zugriffe.");
+    }
+    if (readable.length === 1) {
+      notes.push(
+        "Nur die Startseite liess sich lesen. Beurteile die Homogenität (H1, H2) innerhalb dieser Seite und über ihre Abschnitte, und nenne in den Grenzen, dass weitere Seiten nicht gelesen werden konnten.",
       );
     }
     const roles = new Set(pages.map((p) => p.role));
@@ -79,6 +100,10 @@ export async function crawlSite(browserBinding: Fetcher, url: string, competitor
     // Mitbewerber (nur Startseite)
     const comp: PageSnapshot[] = [];
     for (const c of competitors) {
+      if (!timeLeft(190000)) {
+        notes.push(`Die Website des Mitbewerbers ${c} wurde aus Zeitgründen nicht gelesen.`);
+        continue;
+      }
       const cp = await visit(page, c);
       if (cp && cp.text.length >= MIN_READABLE) comp.push(snapshot(page.url(), "mitbewerber", cp, MAX_TEXT_COMPETITOR));
       else notes.push(`Die Website des Mitbewerbers ${c} liess sich nicht lesen.`);
@@ -100,7 +125,7 @@ let lastVisitProblem = "";
 
 async function visit(page: Page, url: string): Promise<Extracted | null> {
   try {
-    return await withTimeout(visitInner(page, url), 60000, `Seite ${url}`);
+    return await withTimeout(visitInner(page, url), 75000, `Seite ${url}`);
   } catch (e) {
     lastVisitProblem = e instanceof Error ? e.message : String(e);
     return null;
@@ -126,7 +151,7 @@ async function visitInner(page: Page, url: string): Promise<Extracted | null> {
         return null;
       }
       // Kurz warten, bis Inhalte nachgeladen sind – aber nie länger als 8 Sekunden
-      await page.waitForNetworkIdle({ idleTime: 800, timeout: 8000 }).catch(() => {});
+      await page.waitForNetworkIdle({ idleTime: 800, timeout: 6000 }).catch(() => {});
       await acceptCookieBanner(page);
       const data = (await withTimeout(page.evaluate(EXTRACT_SCRIPT), 15000, "Text lesen")) as Extracted;
       if (data && data.text) return data;
