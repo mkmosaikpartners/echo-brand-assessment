@@ -1,26 +1,23 @@
 {
-  "name": "echo-assessment",
-  "version": "0.1.0",
-  "private": true,
+  "name": "echo-snapshot",
+  "version": "2.0.0",
+  "description": "ECHO Snapshot von Mosaik – Markenanalyse nach der ECHO-Methodik",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "14.2.5",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "openai": "^4.52.0",
-    "zod": "^3.23.8",
-    "jsdom": "^24.0.0",
-    "@mozilla/readability": "^0.5.0",
-    "pdfkit": "^0.16.0"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "@types/node": "^20.14.10",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0"
-  }
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2",
+    "wrangler": "^4.143.0"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.4.0"
+  },
+  "private": true
 }

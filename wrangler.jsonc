@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "echo-snapshot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "keep_names": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "browser": { "binding": "BROWSER" },
+  "kv_namespaces": [
+    // Wird beim ersten Deploy automatisch angelegt
+    { "binding": "RESULTS" }
+  ],
+  "workflows": [
+    { "name": "echo-analysis", "binding": "ECHO_WORKFLOW", "class_name": "EchoWorkflow" }
+  ],
+  "vars": {
+    "ANTHROPIC_MODEL": "claude-sonnet-5-5",
+    "REVIEW_MODE": "on",
+    "RATE_LIMIT_PER_HOUR": "5"
+  },
+  "observability": { "enabled": true }
+}

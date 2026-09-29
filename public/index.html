@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECHO Snapshot – Wie klingt das Echo deiner Marke? | Mosaik</title>
+<meta name="description" content="Gib deine Website ein und erfahre, was von deiner Marke ankommt, was weitererzählt wird – und woran ihr arbeiten solltet. Die ECHO-Methodik von Mosaik.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">ECHO SNAPSHOT</a>
+    <div class="top-right"><a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="ripples" aria-hidden="true">
+      <svg viewBox="0 0 1200 1200"><circle cx="760" cy="520" r="120"></circle><circle cx="760" cy="520" r="280"></circle><circle cx="760" cy="520" r="460"></circle><circle cx="760" cy="520" r="660"></circle></svg>
+    </div>
+    <div class="wrap">
+      <div>
+        <div class="kicker">Die ECHO-Methodik von Mosaik &amp; Partners</div>
+        <h1>Wie klingt das Echo deiner Marke?</h1>
+        <p class="lead">ECHO liest eure Website so, wie jemand, der euch zum ersten Mal begegnet. Du erfährst, was ankommt, was weitererzählt wird – und woran ihr arbeiten solltet.</p>
+        <div class="letters" aria-hidden="true"><span>E</span><span>C</span><span>H</span><span>O</span></div>
+      </div>
+
+      <form id="f" class="card" novalidate>
+        <div class="field">
+          <label for="url">Eure Website</label>
+          <input id="url" name="url" type="text" inputmode="url" autocomplete="url" placeholder="www.beispiel.ch" required>
+        </div>
+        <div class="field">
+          <label for="desc">Was bietet ihr an? <span class="muted">(optional)</span></label>
+          <p class="hint">In ein, zwei Sätzen – so, wie du es spontan sagen würdest.</p>
+          <textarea id="desc" name="description" maxlength="400"></textarea>
+        </div>
+        <details>
+          <summary>Mit Mitbewerbern vergleichen (optional)</summary>
+          <p class="hint">Bis zu drei Websites von Anbietern, mit denen ihr verglichen werdet.</p>
+          <input type="text" inputmode="url" name="c1" placeholder="www.mitbewerber-1.ch" aria-label="Mitbewerber 1">
+          <input type="text" inputmode="url" name="c2" placeholder="www.mitbewerber-2.ch" aria-label="Mitbewerber 2">
+          <input type="text" inputmode="url" name="c3" placeholder="www.mitbewerber-3.ch" aria-label="Mitbewerber 3">
+        </details>
+        <button class="btn" type="submit" id="go">Echo messen</button>
+        <div id="err" class="error-box" role="alert" hidden></div>
+        <p class="small">Die Analyse dauert zwei bis drei Minuten. Gespeichert werden die eingegebenen Angaben und das Ergebnis während 90 Tagen, damit du den Link teilen kannst. Die Website wird automatisch gelesen und mit einem Sprachmodell von Anthropic ausgewertet.</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="explain">
+    <div class="wrap">
+      <div class="kicker">Was ECHO misst</div>
+      <div class="grid">
+        <div><div class="big">E</div><h3>Erlebnis</h3><p>Was kommt an – und was wird weitererzählt?</p></div>
+        <div><div class="big" style="color:var(--blue-4)">C</div><h3>Charakter</h3><p>Woher kommt es? Persönlichkeit und Tonalität.</p></div>
+        <div><div class="big" style="color:var(--blue-2)">H</div><h3>Homogenität</h3><p>Trägt es überall – über alle Seiten?</p></div>
+        <div><div class="big" style="color:var(--blue)">O</div><h3>Originalität</h3><p>Gehört es nur euch? Warum und Was.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot"><div class="wrap"><div>ECHO Snapshot · Momentaufnahme, jederzeit wiederholbar · <a href="https://www.mosaik.partners/echo">ECHO-Methodik</a></div><div><a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a></div></div></footer>
+
+<script>
+  const f = document.getElementById("f");
+  const err = document.getElementById("err");
+  const go = document.getElementById("go");
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+    const d = new FormData(f);
+    const url = (d.get("url") || "").toString().trim();
+    if (!url) { err.textContent = "Bitte gib eure Website-Adresse ein."; err.hidden = false; return; }
+    go.disabled = true; go.textContent = "Wird gestartet …";
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url,
+          description: (d.get("description") || "").toString(),
+          competitors: ["c1", "c2", "c3"].map((k) => (d.get(k) || "").toString()).filter(Boolean),
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Das hat nicht geklappt.");
+      location.href = "/r/" + j.id;
+    } catch (x) {
+      err.textContent = x.message || "Das hat nicht geklappt. Bitte versuche es erneut.";
+      err.hidden = false;
+      go.disabled = false; go.textContent = "Echo messen";
+    }
+  });
+</script>
+</body>
+</html>

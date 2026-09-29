@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Freigabe | ECHO Snapshot</title>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .list { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .item { background: #fff; border-radius: 14px; padding: 16px 20px; display: grid; grid-template-columns: minmax(0, 2fr) 120px 150px auto; gap: 16px; align-items: center; }
+  .st { font-weight: 700; }
+  .st.review { color: var(--taupe-dark); }
+  @media (max-width: 800px) { .item { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="/">ECHO SNAPSHOT</a><div class="top-right">Freigabe</div></div></header>
+<main class="wrap" style="padding-top:40px;padding-bottom:60px">
+  <h1 style="font-size:40px">Ergebnisse</h1>
+  <form id="k" style="display:flex;gap:12px;margin-top:18px;max-width:560px">
+    <input id="key" type="text" placeholder="Admin-Schlüssel" aria-label="Admin-Schlüssel" autocomplete="off">
+    <button class="btn" type="submit">Anzeigen</button>
+  </form>
+  <div id="out" class="list"></div>
+</main>
+<script>
+  var keyInput = document.getElementById("key");
+  var out = document.getElementById("out");
+  try { keyInput.value = sessionStorage.getItem("echoKey") || ""; } catch (e) {}
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  var LABEL = { review: "wartet", done: "sichtbar", error: "Fehler", running: "läuft", queued: "wartet auf Start" };
+  function load() {
+    var key = keyInput.value.trim();
+    try { sessionStorage.setItem("echoKey", key); } catch (e) {}
+    fetch("/api/admin/list", { headers: { "x-admin-key": key } }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) { out.innerHTML = '<div class="error-box">' + esc(j.error) + "</div>"; return; }
+      out.innerHTML = j.items.map(function (i) {
+        return '<div class="item"><div><b>' + esc(i.company || i.url) + "</b><div class=\"muted\">" + esc(i.url) + (i.pattern ? " · " + esc(i.pattern) : "") + "</div></div>" +
+          '<div class="st ' + esc(i.status) + '">' + esc(LABEL[i.status] || i.status) + "</div>" +
+          '<div class="muted">' + esc(new Date(i.createdAt).toLocaleString("de-CH")) + "</div>" +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" target="_blank" href="/r/' + esc(i.id) + "?key=" + encodeURIComponent(key) + '">Ansehen</a>' +
+          (i.status === "review" ? '<button class="btn" data-id="' + esc(i.id) + '">Freigeben</button>' : "") + "</div></div>";
+      }).join("") || '<p class="muted">Noch keine Ergebnisse.</p>';
+    });
+  }
+  document.getElementById("k").addEventListener("submit", function (e) { e.preventDefault(); load(); });
+  out.addEventListener("click", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-id");
+    if (!id) return;
+    fetch("/api/admin/approve/" + id, { method: "POST", headers: { "x-admin-key": keyInput.value.trim() } }).then(load);
+  });
+  if (keyInput.value) load();
+</script>
+</body>
+</html>
