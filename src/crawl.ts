@@ -1,6 +1,7 @@
 import puppeteer, { type Browser, type Page } from "@cloudflare/puppeteer";
 import { selectPages, type LinkInfo } from "./pages";
 import type { CrawlResult, PageRole, PageSnapshot } from "./types";
+import { COOKIE_SCRIPT, EXTRACT_SCRIPT } from "./page-scripts";
 
 const MAX_TEXT_PAGE = 14000;
 const MAX_TEXT_COMPETITOR = 6000;
@@ -137,38 +138,3 @@ async function acceptCookieBanner(page: Page): Promise<void> {
   }
 }
 
-// Läuft im Browser der gelesenen Seite. Bewusst als Text, damit der Bundler nichts hineinschreibt.
-const EXTRACT_SCRIPT = `(() => {
-  var clean = function (s) { return s.replace(/\u00ad/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim(); };
-  var text = clean(document.body ? document.body.innerText : "");
-  var alts = Array.from(document.querySelectorAll("img[alt]"))
-    .map(function (i) { return (i.getAttribute("alt") || "").trim(); })
-    .filter(function (a) { return a.length > 2; });
-  var links = Array.from(document.querySelectorAll("a[href]")).map(function (a) {
-    return { href: a.href, text: (a.innerText || a.getAttribute("aria-label") || "").trim().slice(0, 80) };
-  });
-  var germanAlternate = null;
-  var alt = document.querySelector('link[rel="alternate"][hreflang^="de"]');
-  if (alt && alt.href) germanAlternate = alt.href;
-  if (!germanAlternate) {
-    var hit = links.find(function (l) {
-      try { return /^(de|deutsch)$/i.test(l.text) || /\/de(-ch)?(\/|$)/i.test(new URL(l.href, location.href).pathname); }
-      catch (e) { return false; }
-    });
-    if (hit) germanAlternate = hit.href;
-  }
-  return {
-    title: document.title || "",
-    lang: document.documentElement.getAttribute("lang") || "",
-    text: text,
-    alts: Array.from(new Set(alts)),
-    links: links,
-    germanAlternate: germanAlternate
-  };
-})()`;
-
-const COOKIE_SCRIPT = `(() => {
-  var words = /^(alle akzeptieren|akzeptieren|zustimmen|einverstanden|accept all|accept|ok|verstanden|tout accepter)$/i;
-  var btn = Array.from(document.querySelectorAll("button, a[role=button]")).find(function (b) { return words.test((b.textContent || "").trim()); });
-  if (btn) btn.click();
-})()`;

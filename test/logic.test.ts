@@ -4,6 +4,7 @@ import { quoteFound, verifyEvidence } from "../src/verify";
 import { scoreDimensions, resolveArchetype, strengthOf } from "../src/score";
 import { finalize } from "../src/finalize";
 import { ARCHETYPES } from "../src/archetypes";
+import { COOKIE_SCRIPT, EXTRACT_SCRIPT } from "../src/page-scripts";
 import type { CrawlResult, IndicatorRating, ModelReport, PageSnapshot } from "../src/types";
 
 const page = (url: string, text: string): PageSnapshot => ({ url, role: "start", title: "", lang: "de", text, alts: [] });
@@ -105,5 +106,11 @@ describe("Gesamtergebnis", () => {
     expect(r.report.indicators.map((i) => i.id)).toEqual(["E4", "O2"]); // H3 ohne Kurzbeschreibung entfernt
     expect(r.report.indicators[1].level).toBe(1); // 7 → 3, dann mangels Beleg → 1
     expect(r.quality).toEqual({ quotesTotal: 2, quotesVerified: 1, levelsAdjusted: 1 });
+  });
+});
+
+describe("Skripte für den Browser", () => {
+  it("sind gültiges JavaScript", () => {
+    for (const s of [EXTRACT_SCRIPT, COOKIE_SCRIPT]) expect(() => new Function("return " + s)).not.toThrow();
   });
 });
