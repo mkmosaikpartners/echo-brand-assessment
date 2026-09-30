@@ -5,10 +5,10 @@
   var LEVELS = ["fehlt", "behauptet", "erkennbar", "belegt & prägnant"];
   var STRENGTH_LABEL = { fehlt: "fehlt", behauptet: "behauptet", erkennbar: "erkennbar", belegt: "belegt" };
   var DIM = {
-    E: { name: "Erlebnis", q: "Was kommt an – und was wird weitererzählt?", color: "#8a816f" },
-    C: { name: "Charakter", q: "Woher kommt es?", color: "#4b5670" },
-    H: { name: "Homogenität", q: "Trägt es überall?", color: "#37435e" },
-    O: { name: "Originalität", q: "Gehört es nur euch?", color: "#28354f" },
+    E: { name: "Erlebnis", q: "Was kommt an und was wird weitererzählt?", color: "#8a816f" },
+    C: { name: "Charakter", q: "Wie wirkt es und wie klingt es?", color: "#4b5670" },
+    H: { name: "Homogenität", q: "Lebt ihr es konsequent und spricht alles mit einer Stimme?", color: "#37435e" },
+    O: { name: "Originalität", q: "Gehört es nur euch und zeigt es, warum es euch gibt?", color: "#28354f" },
   };
   var IND = {
     E1: "Orientierung", E2: "Atmosphäre", E3: "Erzählung", E4: "Weitererzählbarkeit",
