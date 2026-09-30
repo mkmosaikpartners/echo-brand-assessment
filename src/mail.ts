@@ -124,23 +124,25 @@ ${button(link, "Ergebnis ansehen")}
 }
 
 /** Meldet Mosaik & Partners, dass ein Ergebnis auf Freigabe wartet. */
-export async function mailReviewWaiting(env: Env, id: string, job: JobStatus): Promise<void> {
+export async function mailNewResult(env: Env, id: string, job: JobStatus): Promise<void> {
   try {
     const to = (env.NOTIFY_EMAIL || "").trim();
     if (!to) return;
     const c = (await loadContact(env, id)) || {};
     if (c.notifiedAt) return;
     const company = companyOf(job);
-    const pattern = job.status === "review" ? job.result.report.pattern?.name : "";
-    const subject = `Neuer ECHO Snapshot wartet: ${company}`;
+    const review = job.status === "review";
+    const pattern = job.status === "review" || job.status === "done" ? job.result.report.pattern?.name : "";
+    const subject = review ? `Neuer ECHO Snapshot wartet: ${company}` : `Neuer ECHO Snapshot: ${company}`;
     const html = layout(
-      `<p style="margin:0 0 14px"><b>${esc(company)}</b> ist fertig eingestuft und wartet auf deine Freigabe.</p>
+      `<p style="margin:0 0 14px"><b>${esc(company)}</b> ${review ? "ist fertig eingestuft und wartet auf deine Freigabe." : "ist fertig eingestuft und bereits freigegeben. Die Person hat den Link per Mail erhalten."}</p>
 <p style="margin:0 0 6px">Website: ${esc(job.url)}</p>
 ${pattern ? `<p style="margin:0 0 6px">Muster: ${esc(pattern)}</p>` : ""}
 <p style="margin:0 0 6px">Bestellt von: ${esc(c.name || "–")}${c.email ? ` · <a href="mailto:${esc(c.email)}" style="color:#28354f">${esc(c.email)}</a>` : ""}</p>
-${button(`${baseUrl(env)}/admin`, "Zur Freigabe")}`,
+${button(review ? `${baseUrl(env)}/admin` : `${baseUrl(env)}/r/${id}`, review ? "Zur Freigabe" : "Ergebnis ansehen")}
+${review ? "" : `<p style="margin:0;font-size:14px;color:#56607a">Korrigieren kannst du es jederzeit: in der Admin-Ansicht auf «Bearbeiten».</p>`}`,
     );
-    const text = `${company} wartet auf Freigabe.\nWebsite: ${job.url}\nBestellt von: ${c.name || "–"} ${c.email || ""}\n\n${baseUrl(env)}/admin`;
+    const text = `${company} ${review ? "wartet auf Freigabe" : "ist fertig und freigegeben"}.\nWebsite: ${job.url}\nBestellt von: ${c.name || "–"} ${c.email || ""}\n\n${review ? `${baseUrl(env)}/admin` : `${baseUrl(env)}/r/${id}`}`;
     if (await send(env, to, subject, html, text)) await saveContact(env, id, { ...c, notifiedAt: new Date().toISOString() });
   } catch (e) {
     console.log("mailReviewWaiting", e);

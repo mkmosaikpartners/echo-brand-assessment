@@ -7,7 +7,7 @@ import { finalize } from "./finalize";
 import { missingParts } from "./normalize";
 import { withTimeout } from "./timeout";
 import { applyEdit } from "./edit";
-import { mailFailed, mailResultReady, mailReviewWaiting } from "./mail";
+import { mailFailed, mailNewResult, mailResultReady } from "./mail";
 import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
 
@@ -76,8 +76,8 @@ export class EchoWorkflow extends WorkflowEntrypoint<Env, AnalysisParams> {
 
       await step.do("benachrichtigen", async () => {
         const job = JSON.parse((await this.env.RESULTS.get(`r:${p.id}`)) || "{}") as JobStatus;
-        if (job.status === "review") await withTimeout(mailReviewWaiting(this.env, p.id, job), 30000, "Mail").catch(() => {});
         if (job.status === "done") await withTimeout(mailResultReady(this.env, p.id, job), 30000, "Mail").catch(() => {});
+        if (job.status === "review" || job.status === "done") await withTimeout(mailNewResult(this.env, p.id, job), 30000, "Mail").catch(() => {});
         return true;
       });
     } catch (e) {
