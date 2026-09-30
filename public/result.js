@@ -110,12 +110,15 @@
     h += '<div class="kicker">Euer Echo · Momentaufnahme vom ' + esc(date(r.createdAt)) + "</div>";
     h += "<h1>" + (rep.company_name ? ed("report.company_name", rep.company_name) : esc(name)) + "</h1>";
     h += '<div class="muted">' + esc(host(r.input.url)) + " · " + r.pagesRead.length + " Seiten gelesen" + (r.input.competitors.length ? " · " + r.input.competitors.length + " Mitbewerber verglichen" : "") + "</div>";
-    h += '<div class="retell card"><div class="kicker">In einem Satz – so wird weitererzählt</div><q>' + ed("report.retell_sentence", rep.retell_sentence) + "</q><p>" + ed("report.retell_verdict", rep.retell_verdict) + "</p></div>";
+    h += '<div class="retell card"><div class="kicker">In einem Satz – so wird weitererzählt</div><q>' + ed("report.retell_sentence", rep.retell_sentence) + "</q>" +
+      window.EchoRetell(rep).map(function (x) {
+        return '<div class="rt-row">' + (x[0] ? '<span class="rt-label">' + x[0] + "</span>" : "") + "<p>" + ed(x[2], x[1]) + "</p></div>";
+      }).join("") + "</div>";
     h += '<div class="profile">' + ["E", "C", "H", "O"].map(function (k) {
       var s = dims[k] ? dims[k].strength : "fehlt";
       return '<div><b class="s-' + s + '">' + k + "</b><span>" + DIM[k].name + "<br><small>" + STRENGTH_LABEL[s] + "</small></span></div>";
     }).join("") + "</div>";
-    h += '<div class="legend"><span>Farbkraft = Stärke:</span><span><b class="s-fehlt">A</b>fehlt</span><span><b class="s-behauptet">A</b>behauptet</span><span><b class="s-erkennbar">A</b>erkennbar</span><span><b class="s-belegt">A</b>belegt</span></div>';
+    h += '<div class="legend"><span>Die Farbe zeigt die Stärke:</span><span><b class="s-fehlt">●</b>fehlt</span><span><b class="s-behauptet">●</b>behauptet</span><span><b class="s-erkennbar">●</b>erkennbar</span><span><b class="s-belegt">●</b>belegt</span></div>';
     h += "</div></section>";
 
     // Muster
@@ -138,13 +141,13 @@
     // C
     var a = r.archetype;
     h += '<section class="dim alt"><div class="wrap">' + dimHead("C");
-    h += '<div class="two"><div class="panel"><div class="kicker">So wirkt ihr heute</div>';
-    if (a.onesided) {
-      h += '<div class="name">Einseitig: ' + esc(a.primary) + "</div><p>" + esc(a.primary) + " (" + esc(a.primaryText) + ") trägt den Auftritt allein – ohne zweiten Vorteil als Gegengewicht.</p>";
-    } else {
-      h += '<div class="name">' + esc(a.name) + "</div><p>" + esc(a.primary) + " (" + esc(a.primaryText) + ") + " + esc(a.secondary) + " (" + esc(a.secondaryText) + ")</p>";
-    }
-    h += '<div class="traits">' + ed("archetype.traits", a.traits.join(" · ")) + "</div>" + (rep.archetype && rep.archetype.reasoning ? "<p>" + ed("report.archetype.reasoning", rep.archetype.reasoning) + "</p>" : "") + "</div>";
+    var pf = window.EchoProfile(r);
+    h += '<div class="two"><div class="panel profile-panel"><div class="kicker">' + pf.kicker + "</div>";
+    if (pf.title) h += '<div class="name">' + esc(pf.title) + "</div>";
+    if (pf.effects) h += '<div class="effects">' + esc(pf.effects) + "</div>";
+    if (pf.traits.length) h += '<div class="traits">' + ed("archetype.traits", pf.traits.join(" · ")) + "</div>";
+    if (pf.reasoning) h += "<p>" + ed("report.archetype.reasoning", pf.reasoning) + "</p>";
+    h += "</div>";
     h += '<div class="panel"><div class="kicker">Tonalität</div>' + (function () {
       var c2 = (rep.indicators || []).find(function (i) { return i.id === "C2"; });
       return c2 ? segs(c2.level) + '<div class="lvl">' + esc(LEVELS[c2.level]) + "</div><p>" + ed("report.indicators.#C2.finding", c2.finding) + "</p>" + evidence(c2.evidence) : "";
@@ -188,11 +191,21 @@
 
     // Abschluss
     var contact = job.contactUrl || "https://www.mosaik.partners/#termin-mit-martin";
-    h += '<section class="closer"><div class="wrap"><div><div class="kicker">Was ECHO von aussen nicht sieht</div><ul>' + (rep.limits || []).map(function (x, li) { return "<li>" + ed("report.limits." + li, x) + "</li>"; }).join("") + "</ul></div>";
-    h += '<div><h2>Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><p class="print-only">Gespräch vereinbaren: mosaik.partners/#termin-mit-martin</p><div class="actions"><a class="btn light" href="' + esc(contact) + '" target="_blank" rel="noopener">Gespräch vereinbaren</a><button class="btn ghost" type="button" id="pdfBtn">Ergebnis als PDF</button><a class="btn ghost" href="/">Neue Analyse</a></div></div></div></section>';
+    h += '<section class="closer"><div class="wrap">';
+    h += '<div class="closer-main">' + (rep.fazit ? '<div class="kicker">Fazit</div><p class="fazit">' + ed("report.fazit", rep.fazit) + "</p>" : "") +
+      '<h2>Das Echo hallt nach.</h2><p class="closer-lead">Die Möglichkeiten erläutern wir gerne in einem Gespräch.</p>' +
+      '<div class="actions"><a class="btn light" href="' + esc(contact) + '" target="_blank" rel="noopener">Gespräch vereinbaren</a></div></div>';
+    h += '<div class="closer-limits"><div class="kicker">Was ECHO von aussen nicht sieht</div><ul>' + (rep.limits || []).map(function (x, li) { return "<li>" + ed("report.limits." + li, x) + "</li>"; }).join("") + "</ul></div>";
+    h += "</div></section>";
 
-    // Hinweis zur Methode
-    h += '<section><div class="wrap meta"><p>Diese Analyse beruht auf dem <a href="https://www.mosaik.partners/echo">ECHO-Modell</a> von <a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a>. Es schärft Markenidentität und Markenerlebnis so, dass eine Marke auch im Zeitalter der KI unverwechselbar bleibt.</p></div></section>';
+    // Für Entschlossene: Brand Identity Sprint (bewusst leiser als das Gespräch)
+    h += '<section class="sprint"><div class="wrap"><a class="sprint-card" href="https://schwendi.swiss/brandsprint" target="_blank" rel="noopener">' +
+      '<span class="kicker">Für Entschlossene</span><span class="sprint-title">Brand Identity Sprint · 3 Tage. Eine Marke.</span>' +
+      '<span class="sprint-text">Drei Tage im Pilgerhaus Schwendi, um eure Marke zu schärfen.</span><span class="sprint-more">Mehr zum Sprint →</span></a></div></section>';
+
+    // Nebenwege und Hinweis zur Methode
+    h += '<section><div class="wrap meta"><p class="side-links"><button type="button" class="linkish" id="pdfBtn">Ergebnis als PDF herunterladen</button> · <a href="/">Neue Analyse starten</a></p>' +
+      '<p>Diese Analyse beruht auf dem <a href="https://www.mosaik.partners/echo">ECHO-Modell</a> von <a href="https://www.mosaik.partners/">Mosaik &amp; Partners</a>. Es schärft Markenidentität und Markenerlebnis so, dass eine Marke auch im Zeitalter der KI unverwechselbar bleibt.</p></div></section>';
 
     app.innerHTML = h;
   }

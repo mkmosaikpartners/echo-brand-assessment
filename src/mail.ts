@@ -113,10 +113,10 @@ export async function mailResultReady(env: Env, id: string, job: JobStatus): Pro
 <p style="margin:0 0 14px">das Echo von <b>${esc(company)}</b> ist gemessen. Du siehst jetzt, was von eurer Marke ankommt, was weitererzählt wird – und worüber es sich nachzudenken lohnt.</p>
 ${button(link, "Ergebnis ansehen")}
 <p style="margin:0 0 14px;font-size:14px;color:#56607a">Der Link bleibt 90 Tage gültig. Auf der Ergebnisseite kannst du es auch als Präsentation (PDF) herunterladen.</p>
-<p style="margin:0 0 14px">Eine Momentaufnahme von aussen sieht vieles, aber nicht alles. Wenn du den Ruf dahinter klären möchtest, lass uns sprechen: <a href="https://www.mosaik.partners/#termin-mit-martin" style="color:#28354f">Termin vereinbaren</a>.</p>
+<p style="margin:0 0 14px">Das Echo hallt nach. Die Möglichkeiten erläutern wir gerne in einem Gespräch: <a href="https://www.mosaik.partners/#termin-mit-martin" style="color:#28354f">Termin vereinbaren</a>.</p>
 <p style="margin:20px 0 0">Herzlich<br>Martin Künzi<br><span style="color:#56607a">Mosaik &amp; Partners</span></p>`,
     );
-    const text = `${hello}\n\ndas Echo von ${company} ist gemessen.\n\nErgebnis ansehen: ${link}\n\nDer Link bleibt 90 Tage gültig. Auf der Ergebnisseite kannst du es auch als Präsentation (PDF) herunterladen.\n\nWenn du den Ruf dahinter klären möchtest: https://www.mosaik.partners/#termin-mit-martin\n\nHerzlich\nMartin Künzi\nMosaik & Partners`;
+    const text = `${hello}\n\ndas Echo von ${company} ist gemessen.\n\nErgebnis ansehen: ${link}\n\nDer Link bleibt 90 Tage gültig. Auf der Ergebnisseite kannst du es auch als Präsentation (PDF) herunterladen.\n\nDas Echo hallt nach. Die Möglichkeiten erläutern wir gerne in einem Gespräch: https://www.mosaik.partners/#termin-mit-martin\n\nHerzlich\nMartin Künzi\nMosaik & Partners`;
     if (await send(env, c.email, subject, html, text)) await saveContact(env, id, { ...c, mailedAt: new Date().toISOString() });
   } catch (e) {
     console.log("mailResultReady", e);

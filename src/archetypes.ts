@@ -11,6 +11,17 @@ export const ADVANTAGES = {
 
 export type Advantage = keyof typeof ADVANTAGES;
 
+/** Die Wirkung als deutsches Eigenschaftswort – so erscheint sie im Ergebnis. */
+export const EFFECT_WORD: Record<Advantage, string> = {
+  Innovation: "erneuernd",
+  Passion: "begeisternd",
+  Power: "bestimmt",
+  Prestige: "massgebend",
+  Trust: "verlässlich",
+  Mystique: "zurückhaltend",
+  Alert: "vorausschauend",
+};
+
 export interface Archetype { name: string; primary: Advantage; secondary: Advantage; traits: string[]; diagonal: boolean }
 
 export const ARCHETYPES: Archetype[] = [

@@ -1,5 +1,5 @@
-import { ADVANTAGES, findArchetype, type Advantage } from "./archetypes";
-import type { DimensionScore, IndicatorId, IndicatorRating, Strength } from "./types";
+import { ADVANTAGES, EFFECT_WORD, findArchetype, type Advantage } from "./archetypes";
+import type { Clarity, DimensionScore, IndicatorId, IndicatorRating, Strength } from "./types";
 
 export const DIMENSION_INDICATORS: Record<DimensionScore["key"], IndicatorId[]> = {
   E: ["E1", "E2", "E3", "E4"],
@@ -38,11 +38,20 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** Archetyp aus der Matrix; bei doppeltem Vorteil (Diagonale) ohne Namen – als Einseitigkeit. */
-export function resolveArchetype(primary: Advantage, secondary: Advantage, traitsInContext?: string[]) {
+/**
+ * Charakterprofil. Der Name aus dem Raster bleibt intern; nach aussen zählen Klarheit und die zwei Wirkungen.
+ * Unscharf, wenn das Modell es so einstuft oder die Klarheit des Charakters (C1) tief ist – dann kein Lob.
+ */
+export function resolveArchetype(primary: Advantage, secondary: Advantage, traitsInContext?: string[], modelClarity?: string, c1Level?: number) {
   const a = findArchetype(primary, secondary);
   const onesided = primary === secondary;
+  let clarity: Clarity = modelClarity === "unscharf" ? "unscharf" : onesided ? "einseitig" : "klar";
+  if (typeof c1Level === "number" && c1Level <= 1) clarity = "unscharf";
+  const effects =
+    clarity === "klar" ? `${EFFECT_WORD[primary]} und ${EFFECT_WORD[secondary]}` : clarity === "einseitig" ? `vor allem ${EFFECT_WORD[primary]} – ohne Gegengewicht` : "";
   return {
+    clarity,
+    effects,
     name: onesided || !a ? null : a.name,
     primary,
     secondary,

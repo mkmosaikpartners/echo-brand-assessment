@@ -178,3 +178,16 @@ describe("Einfacher Abruf", () => {
     expect(decodeEntities("Z&uuml;rich &ndash; &laquo;Test&raquo; &amp; &#8364; &#x41;")).toBe("Zürich – «Test» & € A");
   });
 });
+
+describe("Charakterprofil", () => {
+  it("nennt zwei Wirkungen nur bei klarem Charakter", () => {
+    const klar = resolveArchetype("Trust", "Innovation", ["a", "b", "c"], "klar", 3);
+    expect(klar.clarity).toBe("klar");
+    expect(klar.effects).toBe("verlässlich und erneuernd");
+    expect(resolveArchetype("Trust", "Trust", undefined, "einseitig", 2).effects).toBe("vor allem verlässlich – ohne Gegengewicht");
+    const tiefC1 = resolveArchetype("Trust", "Innovation", undefined, "klar", 1);
+    expect(tiefC1.clarity).toBe("unscharf");
+    expect(tiefC1.effects).toBe("");
+    expect(resolveArchetype("Power", "Alert", undefined, "unscharf", 3).clarity).toBe("unscharf");
+  });
+});

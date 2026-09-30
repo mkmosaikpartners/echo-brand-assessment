@@ -88,12 +88,12 @@ export interface ModelReport {
     text: string;
   };
   retell_sentence: string;
-  retell_verdict: string;
   atmosphere: { kern: string; emotion: string; atmosphaere: string };
   hero: { who: string; carries: boolean; text: string };
   archetype: {
     primary: Advantage;
     secondary: Advantage;
+    clarity?: Clarity;
     traits_in_context: string[];
     reasoning: string;
   };
@@ -108,11 +108,17 @@ export interface ModelReport {
     breaks: string;
   }[];
   pattern: { name: string; text: string };
+  retell_keeps?: string;
+  retell_loses?: string;
+  retell_verdict?: string; // nur ältere Ergebnisse
+  fazit?: string;
   levers: { title: string; dimension: "E" | "C" | "H" | "O"; why: string; question?: string; option?: string; first_step?: string }[];
   limits: string[];
 }
 
 /* ---------- Ergebnis ---------- */
+
+export type Clarity = "klar" | "einseitig" | "unscharf";
 
 export type Strength = "fehlt" | "behauptet" | "erkennbar" | "belegt";
 
@@ -137,6 +143,8 @@ export interface EchoResult {
     secondaryText: string;
     traits: string[];
     onesided: boolean;
+    clarity?: Clarity;
+    effects?: string; // z. B. «verlässlich und erneuernd»
   };
   dimensions: DimensionScore[];
   quality: { quotesTotal: number; quotesVerified: number; levelsAdjusted: number };

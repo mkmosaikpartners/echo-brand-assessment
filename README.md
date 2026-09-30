@@ -34,3 +34,10 @@ Die Rubrik und die Archetypen-Matrix entsprechen den Dokumenten im Projekt «ECH
 ## Veröffentlichung
 
 Cloudflare Workers Builds veröffentlicht jede Änderung auf dem Zweig `echo-2` automatisch (Worker `echo-snapshot`).
+
+
+## Anrede-Logik
+
+- **Die Person**, die den Snapshot bestellt (Formular, Warteseite, Mails): «du».
+- **Das Unternehmen**, um das es im Ergebnis geht: «ihr», «euch», «euer» («Euer Echo», «eure Marke»).
+- **Mosaik & Partners** als Absender: «wir» («Die Möglichkeiten erläutern wir gerne in einem Gespräch»). Nie «ich».

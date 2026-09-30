@@ -49,6 +49,34 @@
     return '<div class="d-head"><b style="color:' + d.color + '">' + key + "</b><div><h2>" + d.name + (sub ? ' <span>· ' + esc(sub) + "</span>" : "") + "</h2><p>" + d.q + "</p></div></div>";
   }
 
+
+  /* Gemeinsam mit der Ergebnisseite: Charakterprofil und Weitererzählen */
+  var EFFECT_WORD = { Innovation: "erneuernd", Passion: "begeisternd", Power: "bestimmt", Prestige: "massgebend", Trust: "verlässlich", Mystique: "zurückhaltend", Alert: "vorausschauend" };
+  function profile(r) {
+    var a = r.archetype || {}, rep = r.report || {};
+    var clarity = a.clarity || (a.onesided ? "einseitig" : "klar");
+    var effects = a.effects;
+    if (effects == null) {
+      effects = clarity === "klar" ? (EFFECT_WORD[a.primary] || "") + " und " + (EFFECT_WORD[a.secondary] || "")
+        : clarity === "einseitig" ? "vor allem " + (EFFECT_WORD[a.primary] || "") + " – ohne Gegengewicht" : "";
+    }
+    return {
+      clarity: clarity,
+      kicker: clarity === "unscharf" ? "Profil" : "Charakterprofil",
+      title: clarity === "unscharf" ? "" : ((rep.pattern && rep.pattern.name) || ""),
+      effects: effects,
+      traits: clarity === "unscharf" ? [] : (a.traits || []),
+      reasoning: (rep.archetype && rep.archetype.reasoning) || "",
+    };
+  }
+  function retell(rep) {
+    var rows = [];
+    if (rep.retell_keeps) rows.push(["Was hängen bleibt", rep.retell_keeps, "report.retell_keeps"]);
+    if (rep.retell_loses) rows.push(["Was verloren geht", rep.retell_loses, "report.retell_loses"]);
+    if (!rows.length && rep.retell_verdict) rows.push(["", rep.retell_verdict, "report.retell_verdict"]);
+    return rows;
+  }
+
   function build(job) {
     var r = job.result, rep = r.report;
     var name = rep.company_name || host(r.input.url);
@@ -69,14 +97,15 @@
       '<div class="d-letters"><span>E</span><span>C</span><span>H</span><span>O</span></div>');
 
     // 2 In einem Satz
-    add("d-white d-center", '<div class="d-kick">In einem Satz – so wird weitererzählt</div><blockquote>«' + esc(rep.retell_sentence) + '»</blockquote><p class="d-lead">' + esc(rep.retell_verdict) + "</p>");
+    add("d-white d-center", '<div class="d-kick">In einem Satz – so wird weitererzählt</div><blockquote>«' + esc(rep.retell_sentence) + '»</blockquote>' +
+      '<div class="d-rt">' + retell(rep).map(function (x) { return '<div class="d-rt-row">' + (x[0] ? '<span class="d-kick">' + x[0] + "</span>" : "") + "<p>" + esc(x[1]) + "</p></div>"; }).join("") + "</div>");
 
     // 3 Profil + Muster
     var prof = '<div class="d-kick">Euer Profil</div><div class="d-profile">' + ["E", "C", "H", "O"].map(function (k) {
       var s = dims[k] ? dims[k].strength : "fehlt";
       return '<div><b class="s-' + s + '">' + k + "</b><span>" + DIM[k].name + "<small>" + STRENGTH_LABEL[s] + "</small></span></div>";
     }).join("") + "</div>" +
-      '<div class="d-legend"><span>Farbkraft = Stärke:</span><span><b class="s-fehlt">A</b>fehlt</span><span><b class="s-behauptet">A</b>behauptet</span><span><b class="s-erkennbar">A</b>erkennbar</span><span><b class="s-belegt">A</b>belegt</span></div>';
+      '<div class="d-legend"><span>Die Farbe zeigt die Stärke:</span><span><b class="s-fehlt">●</b>fehlt</span><span><b class="s-behauptet">●</b>behauptet</span><span><b class="s-erkennbar">●</b>erkennbar</span><span><b class="s-belegt">●</b>belegt</span></div>';
     add("d-cream", prof);
 
     var pat = rep.pattern || {};
@@ -95,12 +124,12 @@
     pairs(["E1", "E2", "E3", "E4"], "E");
 
     // C
-    var a = r.archetype;
-    var cLeft = '<div class="d-panel"><div class="d-kick">So wirkt ihr heute</div>' +
-      (a.onesided
-        ? '<div class="d-name">Einseitig: ' + esc(a.primary) + "</div><p>" + esc(a.primary) + " (" + esc(a.primaryText) + ") trägt den Auftritt allein – ohne zweiten Vorteil als Gegengewicht.</p>"
-        : '<div class="d-name">' + esc(a.name) + "</div><p>" + esc(a.primary) + " (" + esc(a.primaryText) + ") + " + esc(a.secondary) + " (" + esc(a.secondaryText) + ")</p>") +
-      '<div class="d-traits">' + a.traits.map(esc).join(" · ") + "</div>" + (rep.archetype && rep.archetype.reasoning ? "<p>" + esc(rep.archetype.reasoning) + "</p>" : "") + "</div>";
+    var pf = profile(r);
+    var cLeft = '<div class="d-panel"><div class="d-kick">' + pf.kicker + "</div>" +
+      (pf.title ? '<div class="d-name">' + esc(pf.title) + "</div>" : "") +
+      (pf.effects ? '<div class="d-effects">' + esc(pf.effects) + "</div>" : "") +
+      (pf.traits.length ? '<div class="d-traits">' + pf.traits.map(esc).join(" · ") + "</div>" : "") +
+      (pf.reasoning ? "<p>" + esc(pf.reasoning) + "</p>" : "") + "</div>";
     var c2 = find("C2");
     var cRight = c2 ? '<div class="d-panel"><div class="d-kick">Tonalität</div>' + segs(c2.level) + '<div class="d-lvl">' + esc(LEVELS[c2.level]) + "</div><p>" + esc(c2.finding) + "</p>" + ev(c2.evidence, 2) + "</div>" : "";
     add("d-white", head("C") + '<div class="d-cols n' + (cRight ? 2 : 1) + '">' + cLeft + cRight + "</div>");
@@ -132,18 +161,28 @@
       pairs(["O1", "O2", "O3"], "O");
     }
 
-    // Hebel
-    add("d-cream", '<div class="d-kick">Worüber es sich nachzudenken lohnt</div><h2 class="d-h2">Drei Hebel</h2><div class="d-levers">' +
-      (rep.levers || []).map(function (l, i) {
-        var body = l.question
-          ? '<div class="d-lv-label">Was wir sehen</div><p>' + esc(l.why) + '</p><div class="d-lv-label">Die Frage an euch</div><p class="d-lv-q">' + esc(l.question) + '</p><div class="d-first"><div class="d-lv-label">Ein möglicher Weg</div>' + esc(l.option) + "</div>"
-          : "<p>" + esc(l.why) + '</p><div class="d-first"><b>Erster Schritt:</b> ' + esc(l.first_step) + "</div>";
-        return '<div class="d-lever"><div class="d-lever-top"><b>' + (i + 1) + '</b><span>' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + "</span></div><h3>" + esc(l.title) + "</h3>" + body + "</div>";
-      }).join("") + "</div>");
+    // Hebel: einer pro Folie, damit sie lesbar bleiben
+    var levers = rep.levers || [];
+    levers.forEach(function (l, i) {
+      var cols = l.question
+        ? [["Was wir sehen", l.why, ""], ["Die Frage an euch", l.question, "d-lv-q"], ["Ein möglicher Weg", l.option, ""]]
+        : [["Was wir sehen", l.why, ""], ["Erster Schritt", l.first_step, ""]];
+      add("d-cream", '<div class="d-kick">Worüber es sich nachzudenken lohnt · Hebel ' + (i + 1) + " von " + levers.length + "</div>" +
+        '<div class="d-lever-head"><b>' + (i + 1) + '</b><div><span class="d-chip">' + esc(l.dimension) + " · " + esc(DIM[l.dimension] ? DIM[l.dimension].name : "") + '</span><h2 class="d-h2">' + esc(l.title) + "</h2></div></div>" +
+        '<div class="d-lever-cols n' + cols.length + '">' + cols.map(function (c) {
+          return '<div><div class="d-lv-label">' + c[0] + '</div><p class="' + c[2] + '">' + esc(c[1]) + "</p></div>";
+        }).join("") + "</div>");
+    });
+
+    // Was ECHO nicht sieht
+    if ((rep.limits || []).length) {
+      add("d-white", '<div class="d-kick">Was ECHO von aussen nicht sieht</div><h2 class="d-h2">Was ein Gespräch klären würde</h2><ul class="d-limits">' + rep.limits.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>");
+    }
 
     // Abschluss
-    add("d-taupe", '<div class="d-cols n2 d-close"><div><div class="d-kick">Was ECHO von aussen nicht sieht</div><ul>' + (rep.limits || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>" +
-      '<div><h2 class="d-h2">Das Echo ist gemessen. Den Ruf dahinter klären wir im Gespräch.</h2><p class="d-contact">Gespräch vereinbaren<br><b>mosaik.partners/#termin-mit-martin</b></p></div></div>' +
+    add("d-taupe d-end", (rep.fazit ? '<div class="d-kick">Fazit</div><p class="d-fazit">' + esc(rep.fazit) + "</p>" : "") +
+      '<h2 class="d-h2">Das Echo hallt nach.</h2><p class="d-contact">Die Möglichkeiten erläutern wir gerne in einem Gespräch.<br><b>mosaik.partners/#termin-mit-martin</b></p>' +
+      '<div class="d-sprint"><span class="d-kick">Für Entschlossene</span><b>Brand Identity Sprint · 3 Tage. Eine Marke.</b><span>schwendi.swiss/brandsprint</span></div>' +
       '<p class="d-method">Diese Analyse beruht auf dem ECHO-Modell von Mosaik &amp; Partners. Es schärft Markenidentität und Markenerlebnis so, dass eine Marke auch im Zeitalter der KI unverwechselbar bleibt.</p>');
 
     function pairs(ids, key) {
@@ -175,4 +214,6 @@
   }
 
   window.EchoDeck = { build: build, fit: fit };
+  window.EchoProfile = profile;
+  window.EchoRetell = retell;
 })();

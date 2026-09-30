@@ -10,7 +10,7 @@ const OBJECTS: Record<string, string[]> = {
   market_logic: ["position", "involvement", "text"],
   atmosphere: ["kern", "emotion", "atmosphaere"],
   hero: ["who", "carries", "text"],
-  archetype: ["primary", "secondary", "traits_in_context", "reasoning"],
+  archetype: ["primary", "secondary", "clarity", "traits_in_context", "reasoning"],
   pattern: ["name", "text"],
 };
 const ARRAYS = ["indicators", "page_comparison", "levers", "limits"];
