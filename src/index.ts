@@ -12,7 +12,7 @@ import { normalizeUrl } from "./pages";
 import type { AnalysisParams, CrawlResult, Env, JobStatus, ModelReport } from "./types";
 
 const TTL_SECONDS = 60 * 60 * 24 * 90; // Ergebnisse 90 Tage aufbewahren
-const PDF_VERSION = "5"; // erhöhen, wenn sich das Aussehen der Präsentation ändert
+const PDF_VERSION = "6"; // erhöhen, wenn sich das Aussehen der Präsentation ändert
 
 /* ================= Hintergrund-Ablauf ================= */
 

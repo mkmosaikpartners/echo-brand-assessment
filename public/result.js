@@ -19,9 +19,9 @@
   var STRENGTH_LABEL = { fehlt: "fehlt", behauptet: "behauptet", erkennbar: "erkennbar", belegt: "belegt" };
   var DIM = {
     E: { name: "Erlebnis", q: "Was kommt an und was wird weitererzählt?", color: "var(--taupe)" },
-    C: { name: "Charakter", q: "Wie wirkt es und wie klingt es?", color: "var(--blue-4)" },
-    H: { name: "Homogenität", q: "Lebt ihr es konsequent und spricht alles mit einer Stimme?", color: "var(--blue-2)" },
-    O: { name: "Originalität", q: "Gehört es nur euch und zeigt es, warum es euch gibt?", color: "var(--blue)" },
+    C: { name: "Charakter", q: "Wie wirkt ihr und wie klingt ihr?", color: "var(--blue-4)" },
+    H: { name: "Homogenität", q: "Lebt ihr eure Marke konsequent und sprecht ihr mit einer Stimme?", color: "var(--blue-2)" },
+    O: { name: "Originalität", q: "Gehört eure Geschichte nur euch und zeigt ihr, warum es euch gibt?", color: "var(--blue)" },
   };
   var IND = {
     E1: "Orientierung", E2: "Atmosphäre", E3: "Erzählung", E4: "Weitererzählbarkeit",
