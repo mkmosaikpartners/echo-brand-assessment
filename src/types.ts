@@ -112,6 +112,12 @@ export interface ModelReport {
   retell_loses?: string;
   retell_verdict?: string; // nur ältere Ergebnisse
   fazit?: string;
+  comparison?: {
+    own_promise: string;
+    shared: string;
+    unique: string;
+    competitors: { name: string; url: string; promise: string; character: string; difference: string; promiseVerified?: boolean }[];
+  };
   levers: { title: string; dimension: "E" | "C" | "H" | "O"; why: string; question?: string; option?: string; first_step?: string }[];
   limits: string[];
 }

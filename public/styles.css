@@ -66,6 +66,8 @@ h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; }
 form label { display: block; font-weight: 600; margin-bottom: 6px; }
 form .hint { font-size: 15px; color: var(--blue-muted); margin: -2px 0 8px; }
 .field { margin-bottom: 22px; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.trio input { font-size: 16px; padding: 11px 12px; }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 input[type="email"] { width: 100%; font: inherit; font-size: 18px; color: var(--blue); padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--white); }
 input[type="text"], input[type="url"], textarea {
@@ -197,6 +199,26 @@ details input { margin-bottom: 10px; }
 .closer ul { margin: 14px 0 0; padding-left: 20px; }
 .closer li { margin-bottom: 10px; }
 
+/* Vergleich mit Mitbewerbern */
+.compare-sec { padding: 110px 0; background: var(--white); }
+.compare-sec h2 { font-size: 36px; margin-top: 8px; }
+.r-hero .muted a { color: inherit; }
+.cmp-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 40px 0 32px; }
+.cmp-sum > div { padding: 30px 34px; border-radius: 18px; background: var(--cream); }
+.cmp-sum > div.own { background: var(--blue); color: var(--white); }
+.cmp-sum > div.own .kicker { color: #c9ceda; }
+.cmp-sum p { font-size: 20px; line-height: 1.45; margin-top: 10px; }
+.cmp-grid { display: grid; gap: 22px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cmp-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cmp-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cmp-card { border: 1.5px solid var(--line); border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 6px; }
+.cmp-card.me { border-color: var(--blue); }
+.cmp-name { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.cmp-host { font-size: 14px; color: var(--ev); margin-bottom: 12px; }
+.cmp-card .lv-label { margin-top: 10px; }
+.cmp-card p { font-size: 16px; line-height: 1.5; color: var(--blue-3); }
+.cmp-card .cmp-promise { font-size: 17px; font-weight: 600; color: var(--blue); }
+
 /* Brand Sprint: eigener, leiserer Auftritt */
 .sprint .wrap { padding-top: 56px; }
 .sprint-card { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; gap: 8px 28px; align-items: baseline; padding: 26px 32px; border: 1.5px solid var(--taupe-light); border-radius: 18px; text-decoration: none; color: var(--blue); background: transparent; }
@@ -222,6 +244,10 @@ details input { margin-bottom: 10px; }
   .dimcard .big { font-size: 56px; }
   .dimcard p { font-size: 16px; }
   .pair { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .trio { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .compare-sec { padding: 72px 0; }
+  .compare-sec h2 { font-size: 28px; }
+  .cmp-sum, .cmp-grid, .cmp-grid.n2, .cmp-grid.n3 { grid-template-columns: minmax(0, 1fr); }
   .row { padding: 24px 22px; gap: 12px; }
   .panel, .retell { padding: 26px; }
   .rt-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }

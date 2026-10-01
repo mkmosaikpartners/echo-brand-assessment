@@ -1,4 +1,4 @@
-import { verifyEvidence } from "./verify";
+import { quoteFound, verifyEvidence } from "./verify";
 import { clampLevel, resolveArchetype, scoreDimensions } from "./score";
 import { ADVANTAGES, type Advantage } from "./archetypes";
 import type { AnalysisParams, CrawlResult, EchoResult, ModelReport } from "./types";
@@ -10,6 +10,18 @@ export function finalize(p: AnalysisParams, crawl: CrawlResult, raw: ModelReport
     .map((i) => ({ ...i, level: clampLevel(i.level), evidence: Array.isArray(i.evidence) ? i.evidence : [] }));
   const checked = verifyEvidence(indicators, [...crawl.pages]);
   const report: ModelReport = { ...raw, indicators: checked.indicators };
+  // Vergleich nur mit gelesenen Mitbewerbern; deren Zitate werden gegen ihren Text geprüft
+  if (!crawl.competitors.length || !raw.comparison) {
+    delete report.comparison;
+  } else {
+    report.comparison = {
+      ...raw.comparison,
+      competitors: (raw.comparison.competitors || []).slice(0, 3).map((c) => ({
+        ...c,
+        promiseVerified: !!c.promise && quoteFound(c.promise, c.url, crawl.competitors),
+      })),
+    };
+  }
   const primary = (raw.archetype?.primary in ADVANTAGES ? raw.archetype.primary : "Trust") as Advantage;
   const secondary = (raw.archetype?.secondary in ADVANTAGES ? raw.archetype.secondary : primary) as Advantage;
   return {

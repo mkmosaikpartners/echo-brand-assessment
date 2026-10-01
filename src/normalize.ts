@@ -12,6 +12,7 @@ const OBJECTS: Record<string, string[]> = {
   hero: ["who", "carries", "text"],
   archetype: ["primary", "secondary", "clarity", "traits_in_context", "reasoning"],
   pattern: ["name", "text"],
+  comparison: ["own_promise", "shared", "unique", "competitors"],
 };
 const ARRAYS = ["indicators", "page_comparison", "levers", "limits"];
 // Unterfelder, die eindeutig genug sind, um sie auch auf oberster Ebene zu übernehmen
@@ -54,6 +55,12 @@ export function normalizeReport(input: unknown): ModelReport {
     }
     out[key] = o;
   }
+
+  // Vergleich: Liste der Mitbewerber kann als Text kommen
+  const cmp = out.comparison as Record<string, unknown>;
+  const list = parseMaybe(cmp.competitors);
+  cmp.competitors = Array.isArray(list) ? list.map((x) => parseMaybe(x)).filter((x) => x && typeof x === "object") : [];
+  if (!cmp.own_promise && !cmp.shared && !(cmp.competitors as unknown[]).length) delete out.comparison;
 
   for (const key of ARRAYS) {
     const v = parseMaybe(raw[key]);

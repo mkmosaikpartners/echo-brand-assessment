@@ -109,7 +109,7 @@
     h += '<section class="r-hero"><div class="ripples" aria-hidden="true"><svg viewBox="0 0 1200 1200"><circle cx="900" cy="700" r="140"></circle><circle cx="900" cy="700" r="320"></circle><circle cx="900" cy="700" r="520"></circle><circle cx="900" cy="700" r="740"></circle></svg></div><div class="wrap">';
     h += '<div class="kicker">Euer Echo · Momentaufnahme vom ' + esc(date(r.createdAt)) + "</div>";
     h += "<h1>" + (rep.company_name ? ed("report.company_name", rep.company_name) : esc(name)) + "</h1>";
-    h += '<div class="muted">' + esc(host(r.input.url)) + " · " + r.pagesRead.length + " Seiten gelesen" + (r.input.competitors.length ? " · " + r.input.competitors.length + " Mitbewerber verglichen" : "") + "</div>";
+    h += '<div class="muted">' + esc(host(r.input.url)) + " · " + r.pagesRead.length + " Seiten gelesen" + (rep.comparison ? ' · <a href="#vergleich">' + rep.comparison.competitors.length + " Mitbewerber verglichen</a>" : r.input.competitors.length ? " · " + r.input.competitors.length + " Mitbewerber verglichen" : "") + "</div>";
     h += '<div class="retell card"><div class="kicker">In einem Satz – so wird weitererzählt</div><q>' + ed("report.retell_sentence", rep.retell_sentence) + "</q>" +
       window.EchoRetell(rep).map(function (x) {
         return '<div class="rt-row">' + (x[0] ? '<span class="rt-label">' + x[0] + "</span>" : "") + "<p>" + ed(x[2], x[1]) + "</p></div>";
@@ -177,6 +177,23 @@
     var mlHead = [POSITION[ml.position], INVOLVEMENT[ml.involvement]].filter(Boolean).join(" · ");
     if (mlHead || ml.text) h += '<div class="note"><div class="kicker">Marktlogik</div><div>' + (mlHead ? "<b>" + esc(mlHead) + "</b>" : "") + "<p>" + ed("report.market_logic.text", ml.text) + "</p></div></div>";
     h += rows(r, ["O1", "O2", "O3"]) + "</div></section>";
+
+    // Vergleich mit Mitbewerbern
+    var cmp = rep.comparison;
+    if (cmp && cmp.competitors && cmp.competitors.length) {
+      h += '<section class="compare-sec" id="vergleich"><div class="wrap"><div class="kicker">Im Vergleich</div><h2>Was alle sagen – und was nur euch gehört</h2>';
+      h += '<div class="cmp-sum"><div><div class="kicker">Was alle sagen</div><p>' + ed("report.comparison.shared", cmp.shared) + '</p></div><div class="own"><div class="kicker">Was nur euch gehört</div><p>' + ed("report.comparison.unique", cmp.unique) + "</p></div></div>";
+      h += '<div class="cmp-grid n' + (cmp.competitors.length + 1) + '">';
+      h += '<div class="cmp-card me"><div class="cmp-name">' + esc(rep.company_name || host(r.input.url)) + '</div><div class="cmp-host">' + esc(host(r.input.url)) + '</div><div class="lv-label">Kernaussage</div><p class="cmp-promise">' + ed("report.comparison.own_promise", cmp.own_promise) + "</p></div>";
+      h += cmp.competitors.map(function (c, ci) {
+        var cp = "report.comparison.competitors." + ci + ".";
+        return '<div class="cmp-card"><div class="cmp-name">' + esc(c.name) + '</div><a class="cmp-host" href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(host(c.url)) + "</a>" +
+          (c.promiseVerified ? '<div class="lv-label">Kernaussage</div><p class="cmp-promise">«' + esc(c.promise) + "»</p>" : "") +
+          '<div class="lv-label">Wirkt</div><p>' + ed(cp + "character", c.character) + "</p>" +
+          '<div class="lv-label">Unterschied zu euch</div><p>' + ed(cp + "difference", c.difference) + "</p></div>";
+      }).join("");
+      h += "</div></div></section>";
+    }
 
     // Hebel
     h += '<section class="levers"><div class="wrap"><div class="kicker">Worüber es sich nachzudenken lohnt</div><h2>Drei Hebel</h2><div class="lever-grid">';

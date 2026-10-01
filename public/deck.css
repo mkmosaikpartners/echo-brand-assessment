@@ -155,3 +155,17 @@
 .d-lever-cols .d-lv-label { margin-bottom: 0.5em; }
 .d-lever-cols p { font-size: 0.95em; color: var(--blue-3); }
 .d-lever-cols p.d-lv-q { font-weight: 600; color: var(--blue); }
+
+/* Vergleich */
+.d-cmp-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1em; }
+.d-cmp-sum > div { background: var(--cream); border-radius: 12px; padding: 0.8em 1em; }
+.d-cmp-sum > div.own { background: var(--blue); color: var(--white); }
+.d-cmp-sum > div.own .d-kick { color: #c9ceda; }
+.d-cmp-sum p { font-size: 0.95em; margin-top: 0.3em; }
+.d-cmp-grid { display: grid; gap: 0.9em; }
+.d-cmp { border: 1px solid var(--line); border-radius: 12px; padding: 0.8em 0.9em; display: flex; flex-direction: column; gap: 0.35em; font-size: 0.85em; }
+.d-cmp.me { border-color: var(--blue); }
+.d-cmp b { font-size: 1.1em; }
+.d-cmp-host { color: var(--ev); font-size: 0.85em; }
+.d-cmp p { color: var(--blue-3); }
+.d-cmp .d-cmp-diff { color: var(--blue); }

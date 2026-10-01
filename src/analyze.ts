@@ -32,7 +32,7 @@ export function buildUserText(crawl: CrawlResult, description?: string): string 
     );
   }
   if (crawl.competitors.length) {
-    parts.push("===== MITBEWERBER (nur für den Austauschbarkeitstest in O2) =====");
+    parts.push("===== MITBEWERBER (für O2 und den Vergleich) =====");
     for (const c of crawl.competitors) parts.push(`--- ${c.url} ---\n${c.text}`);
   } else {
     parts.push("Keine Mitbewerber angegeben: Prüfe O2 gegen typische Muster der Branche.");

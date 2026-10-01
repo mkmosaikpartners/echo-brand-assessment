@@ -41,13 +41,15 @@
           <p class="hint">In ein, zwei Sätzen – so, wie du es spontan sagen würdest.</p>
           <textarea id="desc" name="description" maxlength="400"></textarea>
         </div>
-        <details>
-          <summary>Mit Mitbewerbern vergleichen (optional)</summary>
-          <p class="hint">Bis zu drei Websites von Anbietern, mit denen ihr verglichen werdet.</p>
-          <input type="text" inputmode="url" name="c1" placeholder="www.mitbewerber-1.ch" aria-label="Mitbewerber 1">
-          <input type="text" inputmode="url" name="c2" placeholder="www.mitbewerber-2.ch" aria-label="Mitbewerber 2">
-          <input type="text" inputmode="url" name="c3" placeholder="www.mitbewerber-3.ch" aria-label="Mitbewerber 3">
-        </details>
+        <div class="field compare">
+          <label for="c1">Mit Mitbewerbern vergleichen <span class="muted">(optional)</span></label>
+          <p class="hint">Bis zu drei Websites. Das Ergebnis zeigt, was alle sagen – und was nur euch gehört.</p>
+          <div class="trio">
+            <input id="c1" type="text" inputmode="url" name="c1" placeholder="Website 1" aria-label="Mitbewerber 1">
+            <input type="text" inputmode="url" name="c2" placeholder="Website 2" aria-label="Mitbewerber 2">
+            <input type="text" inputmode="url" name="c3" placeholder="Website 3" aria-label="Mitbewerber 3">
+          </div>
+        </div>
         <div class="pair">
           <div class="field">
             <label for="name">Dein Name</label>

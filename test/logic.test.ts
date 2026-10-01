@@ -191,3 +191,28 @@ describe("Charakterprofil", () => {
     expect(resolveArchetype("Power", "Alert", undefined, "unscharf", 3).clarity).toBe("unscharf");
   });
 });
+
+describe("Vergleich", () => {
+  it("prüft die Zitate der Mitbewerber und lässt den Vergleich ohne Mitbewerber weg", () => {
+    const base = {
+      company_name: "A", indicators: [], page_comparison: [], levers: [], limits: [],
+      archetype: { primary: "Trust", secondary: "Innovation", traits_in_context: [], reasoning: "" },
+      comparison: {
+        own_promise: "x", shared: "s", unique: "u",
+        competitors: [
+          { name: "B", url: "https://b.ch/", promise: "Wir sind die Besten im Land", character: "laut", difference: "d" },
+          { name: "C", url: "https://c.ch/", promise: "Erfundenes Versprechen hier", character: "leise", difference: "d" },
+        ],
+      },
+    } as unknown as ModelReport;
+    const crawl: CrawlResult = {
+      pages: [page("https://a.ch/", "Text")],
+      competitors: [{ url: "https://b.ch/", role: "mitbewerber", title: "", lang: "de", text: "Willkommen. Wir sind die Besten im Land. Punkt.", alts: [] }],
+      notes: [],
+    };
+    const r = finalize({ id: "x", url: "https://a.ch/", competitors: ["https://b.ch/"] }, crawl, base, "m");
+    expect(r.report.comparison?.competitors.map((c) => c.promiseVerified)).toEqual([true, false]);
+    const none = finalize({ id: "y", url: "https://a.ch/", competitors: [] }, { ...crawl, competitors: [] }, base, "m");
+    expect(none.report.comparison).toBeUndefined();
+  });
+});

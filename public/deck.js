@@ -161,6 +161,19 @@
       pairs(["O1", "O2", "O3"], "O");
     }
 
+    // Vergleich
+    var cmp = rep.comparison;
+    if (cmp && cmp.competitors && cmp.competitors.length) {
+      add("d-white", '<div class="d-kick">Im Vergleich</div><h2 class="d-h2">Was alle sagen – und was nur euch gehört</h2>' +
+        '<div class="d-cmp-sum"><div><span class="d-kick">Was alle sagen</span><p>' + esc(cmp.shared) + '</p></div><div class="own"><span class="d-kick">Was nur euch gehört</span><p>' + esc(cmp.unique) + "</p></div></div>" +
+        '<div class="d-cmp-grid" style="grid-template-columns:repeat(' + (cmp.competitors.length + 1) + ',minmax(0,1fr))">' +
+        '<div class="d-cmp me"><b>' + esc(name) + "</b><p>" + esc(cmp.own_promise) + "</p></div>" +
+        cmp.competitors.map(function (c) {
+          return '<div class="d-cmp"><b>' + esc(c.name) + '</b><span class="d-cmp-host">' + esc(host(c.url)) + "</span>" +
+            (c.promiseVerified ? "<p>«" + esc(c.promise) + "»</p>" : "") + '<p class="d-cmp-diff">' + esc(c.difference) + "</p></div>";
+        }).join("") + "</div>");
+    }
+
     // Hebel: einer pro Folie, damit sie lesbar bleiben
     var levers = rep.levers || [];
     levers.forEach(function (l, i) {

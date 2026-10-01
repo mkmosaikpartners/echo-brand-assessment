@@ -1,7 +1,7 @@
 import type { EchoResult } from "./types";
 
 /** Übernimmt eine Textänderung aus der Admin-Ansicht. Nur bestehende Textfelder, nie neue Strukturen. */
-const EDIT_PATH = /^(report(\.(#[A-Z]\d|\d{1,2}|[a-z_]{2,30})){1,3}|archetype\.traits)$/;
+const EDIT_PATH = /^(report(\.(#[A-Z]\d|\d{1,2}|[a-z_]{2,30})){1,4}|archetype\.traits)$/;
 
 export function applyEdit(result: EchoResult, path: string, raw: unknown): boolean {
   if (typeof raw !== "string" || !EDIT_PATH.test(path)) return false;

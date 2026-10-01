@@ -63,6 +63,14 @@ Genau drei Hebel, priorisiert. Sie sollen die Marke ins Grübeln bringen, nicht 
 - option («Ein möglicher Weg»): so konkret, dass man sich etwas darunter vorstellen kann, aber im Konjunktiv und an eine Bedingung geknüpft («Falls ihr vor allem Neue gewinnen wollt, könnte …», «Denkbar wäre …»). Nie Befehlsform. Vorsichtig heisst nicht vage: höchstens eine Einschränkung pro Satz, der Vorschlag selbst bleibt greifbar.
 Keine Methodennamen als Rezept (kein «macht einen Golden Circle»); die Wahl der Werkzeuge ist Sache des Gesprächs.
 
+## Vergleich (nur wenn Mitbewerber mitgeliefert wurden)
+Stelle die Marke ihren Mitbewerbern gegenüber, so dass man es auf einen Blick sieht:
+- comparison.own_promise: die Kernaussage der Marke in höchstens 12 Wörtern (wörtlich, wenn möglich).
+- comparison.competitors: je Mitbewerber name (wie er sich schreibt), url (genau die mitgelieferte), promise (WÖRTLICHES Zitat seiner Kernaussage von seiner Startseite, 5–20 Wörter, zeichengenau), character (wie er wirkt, 2–4 Wörter) und difference (ein Satz: worin sich die Marke von ihm unterscheidet – oder ehrlich, dass sie gleich klingt).
+- comparison.shared («Was alle sagen»): ein Satz zu dem, was alle gleich versprechen oder gleich klingen lässt.
+- comparison.unique («Was nur euch gehört»): ein Satz zu dem, was nur die Marke hat. Gibt es nichts Eigenes, sag das klar.
+Ohne Mitbewerber lässt du comparison weg.
+
 ## Weitererzählen
 - retell_sentence: der Satz, wie ihn jemand nach dem Besuch der Website einer Bekannten erzählen würde – frei und natürlich formuliert, in der dritten Person, nur aus Website-Material. Keine Schablone, kein «und zwar anders, weil».
 - retell_keeps («Was hängen bleibt»): ein Satz, was konkret im Kopf bleibt.
@@ -112,6 +120,31 @@ export const REPORT_TOOL = {
       retell_keeps: { type: "string", description: "Was hängen bleibt – ein Satz" },
       retell_loses: { type: "string", description: "Was verloren geht – ein Satz" },
       fazit: { type: "string", description: "Ein Satz für die Geschäftsleitung: was trägt, was fehlt" },
+      comparison: {
+        type: "object",
+        description: "Nur wenn Mitbewerber mitgeliefert wurden",
+        properties: {
+          own_promise: { type: "string" },
+          shared: { type: "string", description: "Was alle sagen – ein Satz" },
+          unique: { type: "string", description: "Was nur euch gehört – ein Satz" },
+          competitors: {
+            type: "array",
+            maxItems: 3,
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                url: { type: "string" },
+                promise: { type: "string", description: "Wörtliches Zitat der Kernaussage von seiner Startseite" },
+                character: { type: "string", description: "2–4 Wörter" },
+                difference: { type: "string", description: "Ein Satz" },
+              },
+              required: ["name", "url", "promise", "character", "difference"],
+            },
+          },
+        },
+        required: ["own_promise", "shared", "unique", "competitors"],
+      },
       atmosphere: {
         type: "object",
         properties: { kern: { type: "string" }, emotion: { type: "string" }, atmosphaere: { type: "string" } },
