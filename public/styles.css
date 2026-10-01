@@ -66,8 +66,16 @@ h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; }
 form label { display: block; font-weight: 600; margin-bottom: 6px; }
 form .hint { font-size: 15px; color: var(--blue-muted); margin: -2px 0 8px; }
 .field { margin-bottom: 22px; }
+details.compare { margin: -6px 0 24px; }
+details.compare summary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 15px; font-weight: 600; color: var(--taupe-dark); cursor: pointer; list-style: none; }
+details.compare summary::-webkit-details-marker { display: none; }
+details.compare summary .muted { font-weight: 400; }
+details.compare .chev { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s ease; margin-right: 2px; }
+details.compare[open] .chev { transform: rotate(45deg); }
+details.compare .compare-body { padding-top: 6px; }
+details.compare .hint { font-size: 14px; }
 .trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.trio input { font-size: 16px; padding: 11px 12px; }
+.trio input { font-size: 15px; padding: 9px 11px; margin: 0; }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 input[type="email"] { width: 100%; font: inherit; font-size: 18px; color: var(--blue); padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--white); }
 input[type="text"], input[type="url"], textarea {
